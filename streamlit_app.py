@@ -87,7 +87,28 @@ def main():
 		st.warning('未检测到 aiagentplatformpy。若为私有库，云端无法直接安装，请使用带该库的自定义环境或私有包镜像；或联系管理员提供公共可安装版本。')
 
 	# ——— 模式选择 ———
-	mode = st.radio('选择模式：', ['📄 单文件上传', '📁 从文件名生成', '📝 手动批量输入'], horizontal=True)
+	st.subheader('选择处理模式')
+	
+	# 初始化模式状态
+	if 'selected_mode' not in st.session_state:
+		st.session_state.selected_mode = None
+	
+	# 三个模式按钮
+	col1, col2, col3 = st.columns(3)
+	
+	with col1:
+		if st.button('📄 单文件上传', use_container_width=True, type='primary' if st.session_state.selected_mode == '📄 单文件上传' else 'secondary'):
+			st.session_state.selected_mode = '📄 单文件上传'
+	
+	with col2:
+		if st.button('📁 从文件名生成', use_container_width=True, type='primary' if st.session_state.selected_mode == '📁 从文件名生成' else 'secondary'):
+			st.session_state.selected_mode = '📁 从文件名生成'
+	
+	with col3:
+		if st.button('📝 手动批量输入', use_container_width=True, type='primary' if st.session_state.selected_mode == '📝 手动批量输入' else 'secondary'):
+			st.session_state.selected_mode = '📝 手动批量输入'
+	
+	mode = st.session_state.selected_mode
 
 	queries: List[str] = []
 
