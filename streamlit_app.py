@@ -400,6 +400,8 @@ def main():
 					pd.DataFrame(score_data).to_excel(writer, index=False, sheet_name='简历评分')
 				combined_output.seek(0)
 				st.download_button('📒 下载合并Excel（含评分）', data=combined_output.read(), file_name=f"resume_with_scores_{ts}.xlsx", mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+				# 生成评分JSON数据用于ZIP包
+				scores_json_bytes = json.dumps(score_data, ensure_ascii=False, indent=2).encode('utf-8')
 				files_for_zip: List[Tuple[str, bytes]] = [
 					(f'resume_with_scores_{ts}.xlsx', combined_output.getvalue()),
 					(f'resume_data_{ts}.xlsx', to_excel_bytes(st.session_state.extracted_results)),
