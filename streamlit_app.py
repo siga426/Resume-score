@@ -334,12 +334,48 @@ def main():
 				df_scores_sorted = df_scores.sort_values('总得分', ascending=False)
 				st.success(f'评分完成！共 {len(score_data)} 条评分数据')
 				
-				# 重新排列列顺序，将总分放在第一列
+				# 提取文件名并重新排列列顺序
+				if '评分查询' in df_scores_sorted.columns:
+					# 从评分查询中提取文件名
+					def extract_filename(query):
+						if pd.isna(query) or not query:
+							return ''
+						# 移除"的简历评分"后缀
+						query_str = str(query).strip()
+						if query_str.endswith('的简历评分'):
+							return query_str[:-5]  # 移除"的简历评分"
+						return query_str
+					
+					df_scores_sorted['文件名'] = df_scores_sorted['评分查询'].apply(extract_filename)
+				
+				# 重新排列列顺序：文件名、总分、其他得分项
 				score_columns = list(df_scores_sorted.columns)
+				ordered_columns = []
+				
+				# 第一列：文件名
+				if '文件名' in score_columns:
+					ordered_columns.append('文件名')
+				
+				# 第二列：总分
 				if '总得分' in score_columns:
-					# 将总分移到第一列
-					ordered_columns = ['总得分'] + [col for col in score_columns if col != '总得分']
-					df_scores_sorted = df_scores_sorted[ordered_columns]
+					ordered_columns.append('总得分')
+				
+				# 其他得分列（按顺序）
+				score_fields = [
+					'本科院校分', '硕士院校分', '本科专业符合度分', '硕士专业符合度分', 
+					'交叉学科分', '学习成绩分', '英语水平分', '编程技能分', 
+					'项目实习经历分', '学生工作分', '掌握CAD类软件加分', 'AVEVA Marine软件加分'
+				]
+				for field in score_fields:
+					if field in score_columns:
+						ordered_columns.append(field)
+				
+				# 添加剩余列
+				for col in score_columns:
+					if col not in ordered_columns:
+						ordered_columns.append(col)
+				
+				df_scores_sorted = df_scores_sorted[ordered_columns]
 				
 				# 显示排序后的评分明细
 				with st.expander('查看评分明细（按总得分从高到低排序，前100行）', expanded=False):
