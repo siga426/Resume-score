@@ -192,11 +192,8 @@ def main():
 				if not s:
 					return
 				st.session_state['extract_logs'].append(s)
-				ex_log_placeholder.text_area(
-					label='提取日志',
-					value=''.join(st.session_state['extract_logs']),
-					height=200,
-					disabled=True
+				ex_log_placeholder.markdown(
+					''.join(st.session_state['extract_logs'])
 				)
 
 		extractor = ResumeExtractor(api_key, base_url, user_id)
@@ -240,11 +237,8 @@ def main():
 				if not s:
 					return
 				st.session_state['score_logs'].append(s)
-				sc_placeholder.text_area(
-					label='评分日志',
-					value=''.join(st.session_state['score_logs']),
-					height=200,
-					disabled=True
+				sc_placeholder.markdown(
+					''.join(st.session_state['score_logs'])
 				)
 
 		# 仅使用评分Key，不使用兜底
