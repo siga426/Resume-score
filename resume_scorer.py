@@ -27,20 +27,66 @@ class ResumeScorer:
         self.scored_data: List[Dict[str, Any]] = []
 
     def extract_json_from_response(self, response_text: str) -> Optional[Dict[str, Any]]:
-        """从回复中提取JSON"""
+        """从回复中尽可能稳健地提取JSON（兼容多种回复格式）。"""
         try:
-            start_marker = "```json"
-            end_marker = "```"
-            start_pos = response_text.find(start_marker)
-            if start_pos == -1:
-                return json.loads(response_text.strip())
-            json_start = start_pos + len(start_marker)
-            end_pos = response_text.find(end_marker, json_start)
-            if end_pos == -1:
-                json_text = response_text[json_start:].strip()
-            else:
-                json_text = response_text[json_start:end_pos].strip()
-            return json.loads(json_text)
+            # 1) 已是字典
+            if isinstance(response_text, dict):
+                return response_text
+
+            text = str(response_text).strip()
+
+            # 2) 优先解析带代码块（```json / ```JSON / ```）
+            for marker in ("```json", "```JSON", "```"):
+                start = text.find(marker)
+                if start != -1:
+                    json_start = start + len(marker)
+                    end = text.find("```", json_start)
+                    if end != -1:
+                        candidate = text[json_start:end].strip()
+                        try:
+                            return json.loads(candidate)
+                        except Exception:
+                            pass
+
+            # 3) 直接整体解析
+            try:
+                return json.loads(text)
+            except Exception:
+                pass
+
+            # 4) 提取正文中第一段可能的JSON（基于花括号匹配）
+            first_brace = text.find("{")
+            if first_brace != -1:
+                # 先尝试到最后一个右括号的切片
+                last_brace = text.rfind("}")
+                if last_brace != -1 and last_brace > first_brace:
+                    candidate = text[first_brace:last_brace + 1]
+                    try:
+                        return json.loads(candidate)
+                    except Exception:
+                        pass
+
+                # 逐字符匹配，寻找第一个完整的JSON对象
+                depth = 0
+                start_idx = None
+                for i, ch in enumerate(text):
+                    if ch == '{':
+                        if depth == 0:
+                            start_idx = i
+                        depth += 1
+                    elif ch == '}':
+                        if depth > 0:
+                            depth -= 1
+                            if depth == 0 and start_idx is not None:
+                                segment = text[start_idx:i + 1]
+                                try:
+                                    return json.loads(segment)
+                                except Exception:
+                                    # 继续尝试后续片段
+                                    start_idx = None
+                                    continue
+
+            return None
         except Exception:
             return None
 

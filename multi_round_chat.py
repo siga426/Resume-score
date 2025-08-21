@@ -1,15 +1,22 @@
 import json
 import os
 from typing import List, Dict, Any
-from aiagentplatformpy.auth import TokenAuth
-from aiagentplatformpy.chat import ChatEventType
-from aiagentplatformpy.aiagentplatform import AsyncAiAgentPlatform, AiAgentPlatform
+from datetime import datetime
+
+# 尝试导入第三方平台SDK；如不可用，则设置标志并延迟到运行时给出友好错误
+_AIA_PLATFORM_AVAILABLE = True
+try:
+    from aiagentplatformpy.auth import TokenAuth  # type: ignore
+    from aiagentplatformpy.chat import ChatEventType  # type: ignore
+    from aiagentplatformpy.aiagentplatform import AsyncAiAgentPlatform, AiAgentPlatform  # type: ignore
+except Exception:
+    _AIA_PLATFORM_AVAILABLE = False
 
 
 class MultiRoundChatAPI:
     """多轮对话API调用类"""
     
-    def __init__(self, api_key: str, base_url: str, user_id: str):
+    def __init__(self, api_key: str, base_url: str, user_id: str, conversation_id_file: str = "conversation_id.json"):
         """
         初始化多轮对话API
         
@@ -23,8 +30,13 @@ class MultiRoundChatAPI:
         self.user_id = user_id
         self.conversation_id = None
         self.chat_history = []  # 存储所有对话历史
+        self.conversation_id_file = conversation_id_file
         
         # 初始化AI智能体平台
+        if not _AIA_PLATFORM_AVAILABLE:
+            raise ImportError(
+                '缺少依赖 aiagentplatformpy，请在可访问该私有库的环境中安装或在Streamlit Secrets中配置替代后端。'
+            )
         self.aiagentplatform = AiAgentPlatform(
             auth=TokenAuth(token=api_key),
             base_url=base_url
@@ -37,15 +49,15 @@ class MultiRoundChatAPI:
             "user_id": self.user_id,
             "timestamp": "2025-08-03"
         }
-        with open("conversation_id.json", "w", encoding="utf-8") as f:
+        with open(self.conversation_id_file, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
-        print(f"✅ 对话ID已保存到 conversation_id.json")
+        print(f"✅ 对话ID已保存到 {self.conversation_id_file}")
     
     def load_conversation_id(self) -> str:
         """从文件加载对话ID"""
         try:
-            if os.path.exists("conversation_id.json"):
-                with open("conversation_id.json", "r", encoding="utf-8") as f:
+            if os.path.exists(self.conversation_id_file):
+                with open(self.conversation_id_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
                 return data.get("conversation_id")
         except Exception as e:
@@ -77,7 +89,40 @@ class MultiRoundChatAPI:
                 user_id=self.user_id,
                 app_key=self.api_key
             )
-            self.conversation_id = conversation_res['Conversation']['AppConversationID']
+            # 兼容不同返回结构，尽可能提取对话ID
+            conv = conversation_res
+            conv_id = None
+            if isinstance(conv, dict):
+                # 常见字段名尝试
+                for key in [
+                    'AppConversationID',
+                    'conversation_id',
+                    'ConversationID',
+                    'id'
+                ]:
+                    if key in conv and conv[key]:
+                        conv_id = conv[key]
+                        break
+                # 兼容嵌套结构 {"Conversation": {...}}
+                if not conv_id and 'Conversation' in conv and isinstance(conv['Conversation'], dict):
+                    for key in ['AppConversationID', 'conversation_id', 'id']:
+                        if key in conv['Conversation'] and conv['Conversation'][key]:
+                            conv_id = conv['Conversation'][key]
+                            break
+            # 最后兜底：直接将对象转字符串
+            if not conv_id:
+                # 有些实现返回的是模型对象，尝试属性读取
+                try:
+                    conv_id = getattr(conversation_res, 'AppConversationID', None) or \
+                              getattr(conversation_res, 'conversation_id', None) or \
+                              getattr(conversation_res, 'id', None)
+                except Exception:
+                    pass
+
+            if not conv_id:
+                raise ValueError(f"无法从返回值中解析对话ID: {conversation_res}")
+
+            self.conversation_id = conv_id
             print(f"对话创建成功，对话ID: {self.conversation_id}")
             
             # 保存对话ID
@@ -114,7 +159,7 @@ class MultiRoundChatAPI:
                 "message": message,
                 "answer": chat_res.answer,
                 "conversation_id": self.conversation_id,
-                "timestamp": "2025-08-03"  # 可以添加实际时间戳
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             }
             
             # 保存到对话历史
