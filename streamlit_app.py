@@ -169,6 +169,9 @@ def main():
 		st.session_state.score_logs = []
 
 	# 常驻日志区域（默认展开，显示当前 session_state 日志）
+	# 提取进度条
+	ex_progress_placeholder = st.empty()
+	
 	ex_log_expander = st.expander('📜 提取日志', expanded=True)
 	ex_log_placeholder = ex_log_expander.empty()
 	ex_log_placeholder.text_area(
@@ -178,6 +181,9 @@ def main():
 		disabled=True
 	)
 
+	# 评分进度条
+	sc_progress_placeholder = st.empty()
+	
 	sc_expander = st.expander('📜 评分日志', expanded=True)
 	sc_placeholder = sc_expander.empty()
 	sc_placeholder.text_area(
@@ -189,7 +195,8 @@ def main():
 
 	# 提取流程与评分流程（合并按钮顺序执行）
 	if run:
-		progress_ex = st.progress(0, text='提取开始...')
+		with ex_progress_placeholder:
+			progress_ex = st.progress(0, text='提取开始...')
 		# 初始化/清空提取日志
 		st.session_state['extract_logs'] = []
 
@@ -232,7 +239,8 @@ def main():
 
 	# 评分流程
 	if run:
-		progress_sc = st.progress(0, text='评分开始...')
+		with sc_progress_placeholder:
+			progress_sc = st.progress(0, text='评分开始...')
 		# 初始化/清空评分日志
 		st.session_state['score_logs'] = []
 

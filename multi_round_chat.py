@@ -77,7 +77,7 @@ class MultiRoundChatAPI:
         if use_existing:
             existing_conversation_id = self.load_conversation_id()
             if existing_conversation_id:
-                print(f"找到已保存的对话ID: {existing_conversation_id}")
+                # print(f"找到已保存的对话ID: {existing_conversation_id}")
                 self.conversation_id = existing_conversation_id
                 return self.conversation_id
         

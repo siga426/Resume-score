@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional
 from multi_round_chat import MultiRoundChatAPI
 
+
 class ResumeScorer:
     """简历评分器"""
 
@@ -93,7 +94,8 @@ class ResumeScorer:
         try:
             print(f"发送评分查询: {query}")
             response = self.chat_api.send_message(query)
-            # print(f"收到响应: {response}")
+            if SHOW_RESPONSE_DEBUG:
+                # print(f"收到响应: {response}")
             
             if 'answer' not in response:
                 print(f"响应中缺少answer字段: {response}")
@@ -108,7 +110,7 @@ class ResumeScorer:
             data['评分查询'] = query
             data['对话ID'] = response.get('conversation_id', 'unknown')
             data['时间戳'] = response.get('timestamp', datetime.now().isoformat())
-            print(f"成功提取评分数据: {data}")
+            # print(f"成功提取评分数据: {data}")
             return data
         except Exception as e:
             print(f"评分查询处理异常: {e}")
@@ -116,7 +118,7 @@ class ResumeScorer:
 
     def batch_score(self, score_queries: List[str]) -> List[Dict[str, Any]]:
         conversation_id = self.chat_api.create_or_load_conversation(use_existing=True)
-        print(f"使用评分对话ID: {conversation_id}")
+        # print(f"使用评分对话ID: {conversation_id}")
         results: List[Dict[str, Any]] = []
         failed: List[Dict[str, Any]] = []
         for idx, q in enumerate(score_queries, 1):
