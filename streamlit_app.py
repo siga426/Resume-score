@@ -222,10 +222,14 @@ def main():
 		failed = []
 		with contextlib.redirect_stdout(StreamlitAppendWriter()):
 			for idx, q in enumerate(queries, 1):
+				print(f"\n=== 处理第{idx}个简历查询 ===")
+				print(f"查询: {q}")
 				info = extractor.process_resume_query(q)
 				if info:
+					print("✅ 成功提取简历信息")
 					results.append(info)
 				else:
+					print("❌ 提取简历信息失败")
 					failed.append({
 						'序号': idx,
 						'查询内容': q,
