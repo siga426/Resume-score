@@ -119,10 +119,16 @@ def main():
 		batch_files = st.file_uploader('选择多个任意类型文件：仅提取文件名', accept_multiple_files=True)
 		if batch_files:
 			file_names = [bf.name for bf in batch_files]
-			queries = [f"{strip_ext(name)}的简历情况" for name in file_names]
+			extract_queries = [f"{strip_ext(name)}的简历情况" for name in file_names]
+			score_queries = [f"{strip_ext(name)}的简历评分" for name in file_names]
+			queries = extract_queries  # 用于提取的查询
 			st.success(f'已从 {len(file_names)} 个文件名生成 {len(queries)} 条查询')
 			with st.expander('查看生成的查询', expanded=True):
-				st.write(pd.DataFrame({'文件名': file_names, '生成的查询': queries}))
+				st.write(pd.DataFrame({
+					'文件名': file_names, 
+					'提取查询': extract_queries,
+					'评分查询': score_queries
+				}))
 
 	else:
 		st.subheader('📝 手动粘贴批量查询（每行一个）')
