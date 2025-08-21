@@ -149,9 +149,12 @@ def main():
 				extractor = ResumeExtractor(api_key, base_url, user_id)
 				# 创建或加载对话ID
 				try:
-					extractor.chat_api.create_or_load_conversation(use_existing=True)
-				except Exception:
-					pass
+					extractor.chat_api.create_or_load_conversation(use_existing=False)  # 强制创建新对话
+					st.success("✅ 简历提取对话创建成功")
+				except Exception as e:
+					st.error(f"❌ 简历提取对话创建失败: {e}")
+					st.stop()
+				
 				progress = st.progress(0)
 				status_text = st.empty()
 				total = len(st.session_state.queries)
@@ -159,11 +162,21 @@ def main():
 				failed = []
 				for idx, q in enumerate(st.session_state.queries, start=1):
 					status_text.info(f'提取简历信息 {idx}/{total}：{q[:80]}')
-					info = extractor.process_resume_query(q)
-					if info:
-						results.append(info)
-					else:
-						failed.append({'序号': idx, '查询内容': q, '失败时间': datetime.now().strftime('%Y-%m-%d %H:%M:%S'), '失败原因': '提取失败或无返回数据'})
+					try:
+						info = extractor.process_resume_query(q)
+						if info:
+							# 处理列表类型的字段，转换为字符串
+							processed_info = {}
+							for key, value in info.items():
+								if isinstance(value, list):
+									processed_info[key] = '; '.join(str(item) for item in value)
+								else:
+									processed_info[key] = str(value) if value is not None else ""
+							results.append(processed_info)
+						else:
+							failed.append({'序号': idx, '查询内容': q, '失败时间': datetime.now().strftime('%Y-%m-%d %H:%M:%S'), '失败原因': '提取失败或无返回数据'})
+					except Exception as e:
+						failed.append({'序号': idx, '查询内容': q, '失败时间': datetime.now().strftime('%Y-%m-%d %H:%M:%S'), '失败原因': f'处理异常: {str(e)}'})
 					progress.progress(int(idx * 100 / max(total, 1)))
 
 				# —— 简历评分（带进度）——
@@ -171,27 +184,42 @@ def main():
 				scorer = ResumeScorer(score_api_key, base_url, user_id)
 				# 创建或加载评分对话ID
 				try:
-					scorer.chat_api.create_or_load_conversation(use_existing=True)
-				except Exception:
-					pass
-				def to_score_query(q: str) -> str:
-					base = str(q).strip()
-					for suf in ['的简历信息', '的简历情况', '的简历']:
-						if base.endswith(suf):
-							base = base[:-len(suf)]
-							break
-					return base + '的简历评分'
-				score_data = []
-				try:
-					for idx, q in enumerate(st.session_state.queries, start=1):
-						status_text.info(f'获取评分 {idx}/{total}：{q[:80]}')
-						info = scorer.process_score_query(to_score_query(q))
-						if info:
-							score_data.append(info)
-						progress.progress(int(idx * 100 / max(total, 1)))
+					scorer.chat_api.create_or_load_conversation(use_existing=False)  # 强制创建新对话
+					st.success("✅ 简历评分对话创建成功")
 				except Exception as e:
-					st.warning(f'评分调用失败：{e}，将不显示评分数据。')
+					st.warning(f"⚠️ 简历评分对话创建失败: {e}，将跳过评分步骤")
 					score_data = []
+				else:
+					def to_score_query(q: str) -> str:
+						base = str(q).strip()
+						for suf in ['的简历信息', '的简历情况', '的简历']:
+							if base.endswith(suf):
+								base = base[:-len(suf)]
+								break
+						return base + '的简历评分'
+					
+					score_data = []
+					try:
+						for idx, q in enumerate(st.session_state.queries, start=1):
+							status_text.info(f'获取评分 {idx}/{total}：{q[:80]}')
+							try:
+								info = scorer.process_score_query(to_score_query(q))
+								if info:
+									# 处理列表类型的字段，转换为字符串
+									processed_info = {}
+									for key, value in info.items():
+										if isinstance(value, list):
+											processed_info[key] = '; '.join(str(item) for item in value)
+										else:
+											processed_info[key] = str(value) if value is not None else ""
+									score_data.append(processed_info)
+							except Exception as e:
+								st.warning(f'第{idx}条评分查询失败: {e}')
+								continue
+							progress.progress(int(idx * 100 / max(total, 1)))
+					except Exception as e:
+						st.warning(f'评分调用失败：{e}，将不显示评分数据。')
+						score_data = []
 
 				# 保存结果到会话状态
 				st.session_state.data = results
