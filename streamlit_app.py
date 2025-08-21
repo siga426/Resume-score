@@ -92,7 +92,7 @@ def main():
 	st.subheader('📌 使用提示')
 	st.markdown('- 支持 Excel/CSV/TXT 三种输入方式')
 	st.markdown('- 也可从文件名快速生成查询或手动粘贴查询')
-	st.markdown('- 处理完成后可下载合并Excel、JSON、评分JSON、失败查询与ZIP')
+	st.markdown('- 处理完成后可下载合并Excel（信息+评分）、单独Excel、JSON、失败查询与ZIP')
 
 	# ——— 模式选择 ———
 	mode = st.radio('选择模式：', ['📄 单文件上传', '📁 从文件名生成', '📝 手动批量输入'], horizontal=True)
@@ -394,12 +394,19 @@ def main():
 			ts = datetime.now().strftime('%Y%m%d_%H%M%S')
 			# 若有提取结果，则提供合并Excel与ZIP
 			if st.session_state.extracted_results:
+				# 将评分数据拼接到简历信息右侧
+				df_resume = pd.DataFrame(st.session_state.extracted_results)
+				df_score = pd.DataFrame(score_data)
+				
+				# 由于查询文件名顺序一致，直接按索引合并（更可靠）
+				merged_df = pd.concat([df_resume, df_score], axis=1)
+				
+				# 生成合并后的Excel
 				combined_output = io.BytesIO()
 				with pd.ExcelWriter(combined_output, engine='openpyxl') as writer:
-					pd.DataFrame(st.session_state.extracted_results).to_excel(writer, index=False, sheet_name='简历信息')
-					pd.DataFrame(score_data).to_excel(writer, index=False, sheet_name='简历评分')
+					merged_df.to_excel(writer, index=False, sheet_name='简历信息与评分')
 				combined_output.seek(0)
-				st.download_button('📒 下载合并Excel（含评分）', data=combined_output.read(), file_name=f"resume_with_scores_{ts}.xlsx", mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+				st.download_button('📒 下载合并Excel（信息+评分）', data=combined_output.read(), file_name=f"resume_with_scores_{ts}.xlsx", mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 				# 生成评分JSON数据用于ZIP包
 				scores_json_bytes = json.dumps(score_data, ensure_ascii=False, indent=2).encode('utf-8')
 				files_for_zip: List[Tuple[str, bytes]] = [
