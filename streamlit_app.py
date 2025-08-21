@@ -138,29 +138,60 @@ def main():
 	run = st.button('🚀 开始提取', disabled=not can_run)
 	if run:
 		with st.spinner('正在提取简历信息，请稍候...'):
-			extractor = ResumeExtractor(api_key, base_url, user_id)
-			data = extractor.batch_extract_resumes(st.session_state.queries)
-			# 评分
-			score_api_key = 'd2jdmq16ht5pktrs7a10'
-			scorer = ResumeScorer(score_api_key, base_url, user_id)
-			def to_score_query(q: str) -> str:
-				base = str(q).strip()
-				for suf in ['的简历信息', '的简历情况', '的简历']:
-					if base.endswith(suf):
-						base = base[:-len(suf)]
-						break
-				return base + '的简历评分'
-			score_queries = [to_score_query(q) for q in st.session_state.queries]
 			try:
-				score_data = scorer.batch_score(score_queries)
-			except Exception as e:
-				st.warning(f'评分调用失败：{e}，将不显示评分数据。')
+				# 避免使用过期对话ID：删除本地对话缓存文件
+				if os.path.exists('conversation_id.json'):
+					os.remove('conversation_id.json')
+				if os.path.exists('conversation_id_score.json'):
+					os.remove('conversation_id_score.json')
+
+				# —— 简历信息提取（带进度）——
+				extractor = ResumeExtractor(api_key, base_url, user_id)
+				progress = st.progress(0)
+				status_text = st.empty()
+				total = len(st.session_state.queries)
+				results = []
+				failed = []
+				for idx, q in enumerate(st.session_state.queries, start=1):
+					status_text.info(f'提取简历信息 {idx}/{total}：{q[:80]}')
+					info = extractor.process_resume_query(q)
+					if info:
+						results.append(info)
+					else:
+						failed.append({'序号': idx, '查询内容': q, '失败时间': datetime.now().strftime('%Y-%m-%d %H:%M:%S'), '失败原因': '提取失败或无返回数据'})
+					progress.progress(int(idx * 100 / max(total, 1)))
+
+				# —— 简历评分（带进度）——
+				score_api_key = 'd2jdmq16ht5pktrs7a10'
+				scorer = ResumeScorer(score_api_key, base_url, user_id)
+				def to_score_query(q: str) -> str:
+					base = str(q).strip()
+					for suf in ['的简历信息', '的简历情况', '的简历']:
+						if base.endswith(suf):
+							base = base[:-len(suf)]
+							break
+					return base + '的简历评分'
 				score_data = []
-			# 保存结果到会话状态
-			st.session_state.data = data
-			st.session_state.score_data = score_data
-			st.session_state.failed = getattr(extractor, 'failed_queries', [])
-			st.session_state.ran = True
+				try:
+					for idx, q in enumerate(st.session_state.queries, start=1):
+						status_text.info(f'获取评分 {idx}/{total}：{q[:80]}')
+						info = scorer.process_score_query(to_score_query(q))
+						if info:
+							score_data.append(info)
+						progress.progress(int(idx * 100 / max(total, 1)))
+				except Exception as e:
+					st.warning(f'评分调用失败：{e}，将不显示评分数据。')
+					score_data = []
+
+				# 保存结果到会话状态
+				st.session_state.data = results
+				st.session_state.score_data = score_data
+				st.session_state.failed = failed
+				st.session_state.ran = True
+				status_text.success('处理完成 ✅')
+			except Exception as e:
+				st.error(f'提取失败：{e}\n请检查 API Key 是否有效、网络是否可访问，以及查询数量是否过大。')
+				st.stop()
 
 		if not st.session_state.data:
 			st.error('没有成功提取到任何简历数据')
