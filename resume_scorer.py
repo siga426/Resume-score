@@ -46,16 +46,27 @@ class ResumeScorer:
 
     def process_score_query(self, query: str) -> Optional[Dict[str, Any]]:
         try:
+            print(f"发送评分查询: {query}")
             response = self.chat_api.send_message(query)
+            print(f"收到响应: {response}")
+            
+            if 'answer' not in response:
+                print(f"响应中缺少answer字段: {response}")
+                return None
+                
             data = self.extract_json_from_response(response['answer'])
             if not data:
+                print(f"无法从响应中提取JSON数据: {response['answer']}")
                 return None
+                
             # 附加元信息
             data['评分查询'] = query
-            data['对话ID'] = response['conversation_id']
-            data['时间戳'] = response['timestamp']
+            data['对话ID'] = response.get('conversation_id', 'unknown')
+            data['时间戳'] = response.get('timestamp', datetime.now().isoformat())
+            print(f"成功提取评分数据: {data}")
             return data
-        except Exception:
+        except Exception as e:
+            print(f"评分查询处理异常: {e}")
             return None
 
     def batch_score(self, score_queries: List[str]) -> List[Dict[str, Any]]:

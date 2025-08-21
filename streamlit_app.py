@@ -249,12 +249,20 @@ def main():
 		score_error = None
 		with contextlib.redirect_stdout(StreamlitScoreWriter()):
 			for idx, q in enumerate(score_queries, 1):
+				print(f"\n=== 处理第{idx}个评分查询 ===")
+				print(f"查询: {q}")
 				try:
 					info = scorer.process_score_query(q)
+					if info:
+						print("✅ 成功获取评分")
+					else:
+						print("❌ 评分返回空数据")
 				except Exception as e:
 					info = None
-				if info is None:
-					score_error = f'评分调用失败: {e}' if 'e' in locals() else '评分调用失败'
+					score_error = f'评分调用失败: {e}'
+					print(f"❌ 评分异常: {e}")
+				if info is None and score_error is None:
+					score_error = '评分调用失败或无返回数据'
 				if info:
 					score_data.append(info)
 				progress_sc.progress(int(idx * 100 / len(score_queries)), text=f'评分进度：{idx}/{len(score_queries)}')
