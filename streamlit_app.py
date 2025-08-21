@@ -336,8 +336,33 @@ def main():
 		if score_error:
 			st.info(f'评分提示：{score_error}')
 		if score_data:
-			with st.expander('查看评分明细（前100行）', expanded=False):
-				st.dataframe(pd.DataFrame(score_data).head(100), use_container_width=True)
+			# 按总得分从高到低排序
+			df_scores = pd.DataFrame(score_data)
+			if '总得分' in df_scores.columns:
+				df_scores_sorted = df_scores.sort_values('总得分', ascending=False)
+				st.success(f'评分完成！共 {len(score_data)} 条评分数据')
+				
+				# 重新排列列顺序，将总分放在第一列
+				score_columns = list(df_scores_sorted.columns)
+				if '总得分' in score_columns:
+					# 将总分移到第一列
+					ordered_columns = ['总得分'] + [col for col in score_columns if col != '总得分']
+					df_scores_sorted = df_scores_sorted[ordered_columns]
+				
+				# 显示排序后的评分明细
+				with st.expander('查看评分明细（按总得分从高到低排序，前100行）', expanded=False):
+					st.dataframe(df_scores_sorted.head(100), use_container_width=True)
+				
+				# 显示评分统计信息
+				col1, col2, col3, col4 = st.columns(4)
+				col1.metric('最高分', df_scores_sorted['总得分'].max())
+				col2.metric('最低分', df_scores_sorted['总得分'].min())
+				col3.metric('平均分', f"{df_scores_sorted['总得分'].mean():.1f}")
+				col4.metric('中位数', f"{df_scores_sorted['总得分'].median():.1f}")
+			else:
+				# 如果没有总得分字段，按原样显示
+				with st.expander('查看评分明细（前100行）', expanded=False):
+					st.dataframe(pd.DataFrame(score_data).head(100), use_container_width=True)
 			# 下载评分结果
 			st.subheader('📥 下载评分结果')
 			ts = datetime.now().strftime('%Y%m%d_%H%M%S')
