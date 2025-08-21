@@ -36,7 +36,7 @@ class StreamlitLogCapture:
             log_entry = f"[{timestamp}] {text.rstrip()}"
             self.log_buffer.append(log_entry)
             
-            # 同时保存到session_state，用于页面实时显示
+            # 同时保存到session_state，用于页面显示
             if 'logs' in st.session_state:
                 st.session_state.logs.append(log_entry)
                 # 限制session_state中的日志条数
@@ -46,9 +46,6 @@ class StreamlitLogCapture:
             # 限制日志缓冲区条数
             if len(self.log_buffer) > self.max_logs:
                 self.log_buffer = self.log_buffer[-self.max_logs:]
-            
-            # 实时更新页面显示
-            self.update_display_realtime()
     
     def flush(self):
         """重写stdout的flush方法"""
@@ -103,43 +100,7 @@ class StreamlitLogCapture:
             # 如果更新失败，回退到原始stdout
             self.original_stdout.write(f"日志显示更新失败: {e}\n")
     
-    def update_display_realtime(self):
-        """实时更新Streamlit日志显示（轻量级更新）"""
-        try:
-            # 使用st.empty()创建占位符，避免频繁清空容器
-            if not hasattr(self, 'log_placeholder'):
-                self.log_placeholder = self.container.empty()
-            
-            with self.log_placeholder:
-                # 显示最新的日志内容
-                if self.log_buffer:
-                    # 只显示最新的50条日志，避免界面卡顿
-                    recent_logs = self.log_buffer[-50:] if len(self.log_buffer) > 50 else self.log_buffer
-                    log_text = "\n".join(recent_logs)
-                    
-                    st.subheader("📋 实时执行日志")
-                    st.caption("显示程序执行过程中的print输出（实时更新）")
-                    
-                    # 使用st.code显示日志，支持滚动
-                    st.code(log_text, language="text")
-                    
-                    # 显示简单的统计信息
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        st.metric("日志条数", len(self.log_buffer))
-                    with col2:
-                        if self.log_buffer:
-                            last_log_time = self.log_buffer[-1].split(']')[0].replace('[', '')
-                            st.metric("最后更新", last_log_time)
-                    
-                    # 显示"正在执行中..."的提示
-                    st.info("🔄 正在执行中，日志实时更新...")
-                else:
-                    st.info("暂无日志输出")
-                    
-        except Exception as e:
-            # 如果实时更新失败，回退到原始stdout
-            self.original_stdout.write(f"实时日志显示更新失败: {e}\n")
+
     
     def get_logs(self):
         """获取当前日志内容"""
@@ -227,16 +188,16 @@ def main():
 		if st.button("🔄 启用自动刷新", key="auto_refresh"):
 			st.rerun()
 	
-	# 如果正在执行，显示自动刷新提示
+	# 如果正在执行，显示执行状态提示
 	if st.session_state.is_running:
-		st.info("🔄 日志正在实时更新中，您可以手动刷新页面查看最新日志")
+		st.info("🔄 正在执行中，请等待执行完成后查看日志")
 	
 	# 显示系统状态信息
 	with st.sidebar:
 		st.subheader("🔧 系统状态")
 		st.info(f"页面加载时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 		st.success("✅ 日志系统已就绪")
-		st.caption("日志系统将实时捕获程序执行过程中的所有print输出")
+		st.caption("日志系统将捕获程序执行过程中的所有print输出")
 
 	# 从 Streamlit Secrets 读取 API 配置（不显示在界面上）
 	api_key, base_url, user_id = get_api_config()
@@ -254,9 +215,9 @@ def main():
 		st.session_state.is_running = False
 	
 	# 添加日志显示区域
-	with st.expander("📋 实时执行日志", expanded=True):
-		st.info("日志将在开始提取时实时显示")
-		st.caption("点击展开查看详细的执行日志信息，执行过程中会实时更新")
+	with st.expander("📋 执行日志", expanded=True):
+		st.info("日志将在开始提取时显示")
+		st.caption("点击展开查看详细的执行日志信息，执行完成后统一显示")
 		
 		# 显示当前日志
 		if st.session_state.logs:
@@ -352,6 +313,9 @@ def main():
 			
 			# 设置执行完成状态
 			st.session_state.is_running = False
+			
+			# 强制刷新页面以显示日志
+			st.rerun()
 
 		if not data:
 			st.error('没有成功提取到任何简历数据')
