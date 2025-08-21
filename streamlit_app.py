@@ -1,429 +1,389 @@
-import streamlit as st
-import pandas as pd
 import os
+import io
 import json
 import tempfile
-import zipfile
-from datetime import datetime
 import sys
-import io
-from contextlib import redirect_stdout
-import threading
-import queue
-import time
+from datetime import datetime
+from typing import List
+from contextlib import contextmanager
 
-# 导入项目模块
+import streamlit as st
+import pandas as pd
+
 from resume_extractor import ResumeExtractor
 from query_loader import QueryLoader
 
-# 页面配置
-st.set_page_config(
-    page_title="简历信息提取系统",
-    page_icon="📋",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
 
-# 全局变量
-if 'log_messages' not in st.session_state:
-    st.session_state.log_messages = []
-if 'extraction_running' not in st.session_state:
-    st.session_state.extraction_running = False
-
-class StreamlitLogger:
-    """Streamlit日志记录器，用于捕获print输出"""
+# 创建日志捕获器类
+class StreamlitLogCapture:
+    """捕获print输出并显示在Streamlit界面上的日志捕获器"""
     
-    def __init__(self):
-        self.log_queue = queue.Queue()
+    def __init__(self, container):
+        self.container = container
         self.original_stdout = sys.stdout
-        self.original_print = print
-        
-    def start_capture(self):
-        """开始捕获print输出"""
-        sys.stdout = self
-        # 重写print函数
-        def custom_print(*args, **kwargs):
-            message = ' '.join(str(arg) for arg in args)
-            timestamp = datetime.now().strftime('%H:%M:%S')
-            log_entry = f"[{timestamp}] {message}"
-            self.log_queue.put(log_entry)
-            # 同时输出到原始stdout
-            self.original_print(*args, **kwargs)
-        
-        # 替换全局print函数
-        globals()['print'] = custom_print
-        
-    def stop_capture(self):
-        """停止捕获print输出"""
-        sys.stdout = self.original_stdout
-        globals()['print'] = self.original_print
+        self.log_buffer = []
+        self.max_logs = 200  # 最大日志条数
         
     def write(self, text):
         """重写stdout的write方法"""
-        if text.strip():
+        if text.strip():  # 只处理非空文本
+            # 保存到原始stdout
+            self.original_stdout.write(text)
+            self.original_stdout.flush()
+            
+            # 添加到日志缓冲区
             timestamp = datetime.now().strftime('%H:%M:%S')
-            log_entry = f"[{timestamp}] {text.strip()}"
-            self.log_queue.put(log_entry)
-        self.original_stdout.write(text)
-        
+            log_entry = f"[{timestamp}] {text.rstrip()}"
+            self.log_buffer.append(log_entry)
+            
+            # 同时保存到session_state，用于页面实时显示
+            if 'logs' in st.session_state:
+                st.session_state.logs.append(log_entry)
+                # 限制session_state中的日志条数
+                if len(st.session_state.logs) > self.max_logs:
+                    st.session_state.logs = st.session_state.logs[-self.max_logs:]
+            
+            # 限制日志缓冲区条数
+            if len(self.log_buffer) > self.max_logs:
+                self.log_buffer = self.log_buffer[-self.max_logs:]
+            
+            # 实时更新页面显示
+            self.update_display_realtime()
+    
     def flush(self):
         """重写stdout的flush方法"""
         self.original_stdout.flush()
-        
+    
+    def update_display(self):
+        """更新Streamlit日志显示"""
+        try:
+            # 清空容器并重新显示日志
+            self.container.empty()
+            with self.container:
+                st.subheader("📋 实时执行日志")
+                st.caption("显示程序执行过程中的print输出")
+                
+                # 显示日志内容
+                if self.log_buffer:
+                    log_text = "\n".join(self.log_buffer)
+                    st.code(log_text, language="text")
+                    
+                    # 显示日志统计信息
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("日志条数", len(self.log_buffer))
+                    with col2:
+                        if self.log_buffer:
+                            last_log_time = self.log_buffer[-1].split(']')[0].replace('[', '')
+                            st.metric("最后更新", last_log_time)
+                    with col3:
+                        st.metric("缓冲区大小", f"{len(self.log_buffer)}/{self.max_logs}")
+                    
+                    # 添加操作按钮
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        if st.button("🗑️ 清除日志", key="clear_logs"):
+                            self.log_buffer.clear()
+                            st.rerun()
+                    with col2:
+                        if st.button("📥 下载日志", key="download_logs"):
+                            log_content = "\n".join(self.log_buffer)
+                            st.download_button(
+                                "确认下载",
+                                log_content,
+                                file_name=f"execution_logs_{datetime.now().strftime('%Y%m%d_%H%M:%S')}.txt",
+                                mime="text/plain"
+                            )
+                    with col3:
+                        if st.button("🔄 刷新显示", key="refresh_logs"):
+                            st.rerun()
+                else:
+                    st.info("暂无日志输出")
+        except Exception as e:
+            # 如果更新失败，回退到原始stdout
+            self.original_stdout.write(f"日志显示更新失败: {e}\n")
+    
+    def update_display_realtime(self):
+        """实时更新Streamlit日志显示（轻量级更新）"""
+        try:
+            # 使用st.empty()创建占位符，避免频繁清空容器
+            if not hasattr(self, 'log_placeholder'):
+                self.log_placeholder = self.container.empty()
+            
+            with self.log_placeholder:
+                # 显示最新的日志内容
+                if self.log_buffer:
+                    # 只显示最新的50条日志，避免界面卡顿
+                    recent_logs = self.log_buffer[-50:] if len(self.log_buffer) > 50 else self.log_buffer
+                    log_text = "\n".join(recent_logs)
+                    
+                    st.subheader("📋 实时执行日志")
+                    st.caption("显示程序执行过程中的print输出（实时更新）")
+                    
+                    # 使用st.code显示日志，支持滚动
+                    st.code(log_text, language="text")
+                    
+                    # 显示简单的统计信息
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.metric("日志条数", len(self.log_buffer))
+                    with col2:
+                        if self.log_buffer:
+                            last_log_time = self.log_buffer[-1].split(']')[0].replace('[', '')
+                            st.metric("最后更新", last_log_time)
+                    
+                    # 显示"正在执行中..."的提示
+                    st.info("🔄 正在执行中，日志实时更新...")
+                else:
+                    st.info("暂无日志输出")
+                    
+        except Exception as e:
+            # 如果实时更新失败，回退到原始stdout
+            self.original_stdout.write(f"实时日志显示更新失败: {e}\n")
+    
     def get_logs(self):
-        """获取所有日志消息"""
-        logs = []
-        while not self.log_queue.empty():
-            try:
-                logs.append(self.log_queue.get_nowait())
-            except queue.Empty:
-                break
-        return logs
+        """获取当前日志内容"""
+        return self.log_buffer.copy()
+
+
+@contextmanager
+def capture_logs(container):
+    """上下文管理器，用于捕获日志"""
+    capture = StreamlitLogCapture(container)
+    sys.stdout = capture
+    try:
+        yield capture
+    finally:
+        sys.stdout = capture.original_stdout
+
+
+def get_api_config():
+	# 从 Streamlit Secrets 读取 API 配置
+	api_key = st.secrets.get('RESUME_API_KEY')
+	base_url = st.secrets.get('RESUME_BASE_URL')
+	user_id = st.secrets.get('RESUME_USER_ID')
+	
+	# 检查是否所有配置都已设置
+	if not all([api_key, base_url, user_id]):
+		st.error('❌ API 配置不完整，请在 Streamlit Cloud 的 Settings → Secrets 中配置以下信息：\n'
+				'- RESUME_API_KEY: API 密钥\n'
+				'- RESUME_BASE_URL: API 基础 URL\n'
+				'- RESUME_USER_ID: 用户 ID')
+		st.stop()
+	
+	return api_key, base_url, user_id
+
+
+def strip_ext(filename: str) -> str:
+	if '.' not in filename:
+		return filename
+	return '.'.join(filename.split('.')[:-1])
+
+
+def to_excel_bytes(data: List[dict], sheet_name: str = '简历信息') -> bytes:
+	if not data:
+		return b''
+	df = pd.DataFrame(data)
+	output = io.BytesIO()
+	with pd.ExcelWriter(output, engine='openpyxl') as writer:
+		df.to_excel(writer, index=False, sheet_name=sheet_name)
+		ws = writer.sheets[sheet_name]
+		for column in ws.columns:
+			max_len = 0
+			col_letter = column[0].column_letter
+			for cell in column:
+				try:
+					val_len = len(str(cell.value)) if cell.value is not None else 0
+					max_len = max(max_len, val_len)
+				except Exception:
+					pass
+			ws.column_dimensions[col_letter].width = min(max_len + 2, 50)
+	output.seek(0)
+	return output.read()
+
+
+def to_failed_queries_excel_bytes(failed_queries: List[dict]) -> bytes:
+	if not failed_queries:
+		return b''
+	df = pd.DataFrame(failed_queries)
+	output = io.BytesIO()
+	with pd.ExcelWriter(output, engine='openpyxl') as writer:
+		df.to_excel(writer, index=False, sheet_name='失败查询')
+	output.seek(0)
+	return output.read()
+
 
 def main():
-    """主函数"""
-    
-    # 页面标题
-    st.title("📋 简历信息提取系统")
-    st.markdown("智能提取简历信息，支持批量处理 - Streamlit版本")
-    
-    # 侧边栏配置
-    with st.sidebar:
-        st.header("⚙️ 系统配置")
-        
-        # API配置
-        st.subheader("API设置")
-        api_key = st.text_input("API密钥", value="d2a7gnen04uuiosfsnk0", type="password")
-        base_url = st.text_input("API基础URL", value="https://aiagentplatform.cmft.com")
-        user_id = st.text_input("用户ID", value="Siga")
-        
-        # 文件上传配置
-        st.subheader("📁 文件上传")
-        uploaded_file = st.file_uploader(
-            "选择查询文件",
-            type=['xlsx', 'xls', 'csv', 'txt'],
-            help="支持Excel、CSV、TXT格式，第一列包含查询列表"
-        )
-        
-        # 操作按钮
-        st.subheader("🚀 操作控制")
-        if uploaded_file is not None:
-            if st.button("开始提取", type="primary", use_container_width=True):
-                start_extraction(uploaded_file, api_key, base_url, user_id)
-        
-        # 系统状态
-        st.subheader("📊 系统状态")
-        if st.session_state.extraction_running:
-            st.info("🔄 正在运行中...")
-        else:
-            st.success("✅ 系统就绪")
-    
-    # 主内容区域
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        st.header("📋 文件信息")
-        if uploaded_file is not None:
-            file_info = {
-                "文件名": uploaded_file.name,
-                "文件大小": f"{uploaded_file.size / 1024:.1f} KB",
-                "文件类型": uploaded_file.type,
-                "上传时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            }
-            
-            for key, value in file_info.items():
-                st.write(f"**{key}:** {value}")
-            
-            # 预览文件内容
-            st.subheader("📖 文件内容预览")
-            try:
-                if uploaded_file.name.endswith(('.xlsx', '.xls')):
-                    df = pd.read_excel(uploaded_file)
-                elif uploaded_file.name.endswith('.csv'):
-                    df = pd.read_csv(uploaded_file)
-                else:
-                    # 文本文件
-                    content = uploaded_file.read().decode('utf-8')
-                    lines = content.split('\n')[:10]  # 只显示前10行
-                    df = pd.DataFrame({'查询内容': lines})
-                    uploaded_file.seek(0)  # 重置文件指针
-                
-                st.dataframe(df.head(10), use_container_width=True)
-                if len(df) > 10:
-                    st.info(f"显示前10行，共{len(df)}行数据")
-                    
-            except Exception as e:
-                st.error(f"文件预览失败: {str(e)}")
-        else:
-            st.info("请上传查询文件")
-    
-    with col2:
-        st.header("📊 提取统计")
-        if 'extraction_summary' in st.session_state:
-            summary = st.session_state.extraction_summary
-            col_a, col_b = st.columns(2)
-            
-            with col_a:
-                st.metric("总数量", summary.get('total_count', 0))
-                st.metric("成功", summary.get('successful_extractions', 0))
-            
-            with col_b:
-                st.metric("失败", summary.get('failed_count', 0))
-                st.metric("成功率", f"{summary.get('success_rate', 0):.1f}%")
-        else:
-            st.info("暂无提取数据")
-    
-    # 实时日志显示
-    st.header("📝 实时执行日志")
-    
-    # 日志控制按钮
-    col1, col2, col3 = st.columns([1, 1, 2])
-    with col1:
-        if st.button("🔄 刷新日志", use_container_width=True):
-            st.rerun()
-    
-    with col2:
-        if st.button("🗑️ 清空日志", use_container_width=True):
-            st.session_state.log_messages = []
-            st.rerun()
-    
-    with col3:
-        st.info("日志会实时显示程序执行过程中的所有print输出")
-    
-    # 日志显示区域
-    if st.session_state.log_messages:
-        # 创建可滚动的日志容器
-        log_text = "\n".join(st.session_state.log_messages[-100:])  # 只显示最后100条
-        st.text_area("执行日志", value=log_text, height=300, disabled=True)
-    else:
-        st.info("暂无日志信息")
-    
-    # 结果显示区域
-    if 'extraction_results' in st.session_state:
-        st.header("📊 提取结果")
-        
-        results = st.session_state.extraction_results
-        
-        # 显示摘要信息
-        if 'summary' in results:
-            summary = results['summary']
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                st.metric("成功提取", summary.get('successful_extractions', 0))
-            
-            with col2:
-                st.metric("不同姓名", len(summary.get('unique_names', [])))
-            
-            with col3:
-                st.metric("学历类型", len(summary.get('education_levels', [])))
-            
-            with col4:
-                st.metric("涉及院校", len(summary.get('universities', [])))
-        
-        # 显示数据表格
-        if 'data' in results and results['data']:
-            st.subheader("📋 提取数据预览")
-            df = pd.DataFrame(results['data'])
-            st.dataframe(df.head(20), use_container_width=True)
-            
-            if len(df) > 20:
-                st.info(f"显示前20行，共{len(df)}行数据")
-        
-        # 下载按钮
-        if 'files' in results:
-            st.subheader("📥 下载结果")
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                if st.button("📊 下载Excel", use_container_width=True):
-                    download_excel(results['files']['excel'])
-            
-            with col2:
-                if st.button("📄 下载JSON", use_container_width=True):
-                    download_json(results['files']['json'])
-            
-            with col3:
-                if st.button("📦 下载所有文件", use_container_width=True):
-                    download_all_files()
+	st.set_page_config(page_title='CMSR - 简历信息提取系统', layout='wide')
+	st.title('📋 CMSR - 简历信息提取系统')
+	st.caption('在云端运行，无需本地部署。支持单文件查询与批量文件名生成查询。')
+	
+	# 添加自动刷新功能
+	col1, col2 = st.columns(2)
+	with col1:
+		if st.button("🔄 手动刷新", key="manual_refresh"):
+			st.rerun()
+	with col2:
+		if st.button("🔄 启用自动刷新", key="auto_refresh"):
+			st.rerun()
+	
+	# 如果正在执行，显示自动刷新提示
+	if st.session_state.is_running:
+		st.info("🔄 日志正在实时更新中，您可以手动刷新页面查看最新日志")
+	
+	# 显示系统状态信息
+	with st.sidebar:
+		st.subheader("🔧 系统状态")
+		st.info(f"页面加载时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+		st.success("✅ 日志系统已就绪")
+		st.caption("日志系统将实时捕获程序执行过程中的所有print输出")
 
-def start_extraction(uploaded_file, api_key, base_url, user_id):
-    """开始简历提取"""
-    
-    if st.session_state.extraction_running:
-        st.warning("提取任务正在运行中，请等待完成")
-        return
-    
-    st.session_state.extraction_running = True
-    
-    # 创建日志记录器
-    logger = StreamlitLogger()
-    logger.start_capture()
-    
-    try:
-        # 保存上传的文件
-        upload_dir = "uploads"
-        os.makedirs(upload_dir, exist_ok=True)
-        
-        file_path = os.path.join(upload_dir, uploaded_file.name)
-        with open(file_path, "wb") as f:
-            f.write(uploaded_file.getbuffer())
-        
-        # 记录日志
-        st.session_state.log_messages.append(f"[{datetime.now().strftime('%H:%M:%S')}] 文件上传成功: {uploaded_file.name}")
-        
-        # 创建简历提取器
-        extractor = ResumeExtractor(api_key, base_url, user_id)
-        query_loader = QueryLoader()
-        
-        # 从文件读取查询列表
-        resume_queries = query_loader.load_queries(file_path)
-        
-        if not resume_queries:
-            st.error("无法从文件中读取查询列表")
-            return
-        
-        st.session_state.log_messages.append(f"[{datetime.now().strftime('%H:%M:%S')}] 成功加载 {len(resume_queries)} 个查询")
-        
-        # 执行批量提取
-        extracted_data = extractor.batch_extract_resumes(resume_queries)
-        
-        if not extracted_data:
-            st.error("没有成功提取到任何简历数据")
-            return
-        
-        # 生成输出文件名
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        excel_filename = f'resume_data_{timestamp}.xlsx'
-        json_filename = f'resume_data_{timestamp}.json'
-        
-        output_dir = "outputs"
-        os.makedirs(output_dir, exist_ok=True)
-        
-        excel_path = os.path.join(output_dir, excel_filename)
-        json_path = os.path.join(output_dir, json_filename)
-        
-        # 导出文件
-        extractor.export_to_excel(excel_path)
-        extractor.export_to_json(json_path)
-        
-        # 保存失败的查询（如果有的话）
-        failed_queries_file = None
-        if hasattr(extractor, 'failed_queries') and extractor.failed_queries:
-            failed_timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            failed_filename = f'failed_queries_{failed_timestamp}.xlsx'
-            failed_path = os.path.join(output_dir, failed_filename)
-            extractor.save_failed_queries(failed_path)
-            failed_queries_file = failed_filename
-        
-        # 获取提取摘要
-        summary = extractor.get_extraction_summary()
-        failed_summary = extractor.get_failed_queries_summary()
-        
-        # 保存结果到session state
-        st.session_state.extraction_results = {
-            'data': extracted_data,
-            'summary': summary,
-            'failed_summary': failed_summary,
-            'files': {
-                'excel': excel_filename,
-                'json': json_filename,
-                'failed_queries': failed_queries_file
-            }
-        }
-        
-        st.session_state.extraction_summary = {
-            'total_count': len(resume_queries),
-            'successful_extractions': summary.get('successful_extractions', 0),
-            'failed_count': failed_summary.get('failed_count', 0) if failed_summary else 0,
-            'success_rate': (summary.get('successful_extractions', 0) / len(resume_queries)) * 100 if resume_queries else 0
-        }
-        
-        st.session_state.log_messages.append(f"[{datetime.now().strftime('%H:%M:%S')}] 简历提取完成！成功提取 {len(extracted_data)} 条数据")
-        
-        st.success("简历提取完成！")
-        
-    except Exception as e:
-        error_msg = f"提取失败: {str(e)}"
-        st.error(error_msg)
-        st.session_state.log_messages.append(f"[{datetime.now().strftime('%H:%M:%S')}] {error_msg}")
-        
-    finally:
-        # 停止日志捕获
-        logger.stop_capture()
-        st.session_state.extraction_running = False
-        
-        # 获取剩余的日志
-        remaining_logs = logger.get_logs()
-        st.session_state.log_messages.extend(remaining_logs)
+	# 从 Streamlit Secrets 读取 API 配置（不显示在界面上）
+	api_key, base_url, user_id = get_api_config()
 
-def download_excel(filename):
-    """下载Excel文件"""
-    try:
-        file_path = os.path.join("outputs", filename)
-        if os.path.exists(file_path):
-            with open(file_path, "rb") as f:
-                st.download_button(
-                    label="点击下载Excel文件",
-                    data=f.read(),
-                    file_name=filename,
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
-        else:
-            st.error("文件不存在")
-    except Exception as e:
-        st.error(f"下载失败: {str(e)}")
+	# ——— 模式选择 ———
+	mode = st.radio('选择上传模式：', ['📄 单文件模式', '📁 批量文件模式'], horizontal=True)
+	
+	# 创建日志显示区域
+	log_container = st.container()
+	
+	# 初始化session_state
+	if 'logs' not in st.session_state:
+		st.session_state.logs = []
+	if 'is_running' not in st.session_state:
+		st.session_state.is_running = False
+	
+	# 添加日志显示区域
+	with st.expander("📋 实时执行日志", expanded=True):
+		st.info("日志将在开始提取时实时显示")
+		st.caption("点击展开查看详细的执行日志信息，执行过程中会实时更新")
+		
+		# 显示当前日志
+		if st.session_state.logs:
+			log_text = "\n".join(st.session_state.logs[-50:])  # 显示最新50条
+			st.code(log_text, language="text")
+			
+			# 显示统计信息
+			col1, col2, col3 = st.columns(3)
+			with col1:
+				st.metric("日志条数", len(st.session_state.logs))
+			with col2:
+				if st.session_state.logs:
+					last_log = st.session_state.logs[-1]
+					last_time = last_log.split(']')[0].replace('[', '') if ']' in last_log else 'N/A'
+					st.metric("最后更新", last_time)
+			with col3:
+				st.metric("执行状态", "🔄 执行中" if st.session_state.is_running else "⏸️ 已停止")
+			
+			# 操作按钮
+			col1, col2, col3 = st.columns(3)
+			with col1:
+				if st.button("🗑️ 清除日志", key="clear_logs"):
+					st.session_state.logs.clear()
+					st.rerun()
+			with col2:
+				if st.button("📥 下载日志", key="download_logs"):
+					log_content = "\n".join(st.session_state.logs)
+					st.download_button(
+						"确认下载",
+						log_content,
+						file_name=f"execution_logs_{datetime.now().strftime('%Y%m%d_%H%M:%S')}.txt",
+						mime="text/plain"
+					)
+			with col3:
+				if st.button("🔄 刷新显示", key="refresh_logs"):
+					st.rerun()
+		else:
+			st.info("暂无日志输出")
+	
+	queries: List[str] = []
 
-def download_json(filename):
-    """下载JSON文件"""
-    try:
-        file_path = os.path.join("outputs", filename)
-        if os.path.exists(file_path):
-            with open(file_path, "rb") as f:
-                st.download_button(
-                    label="点击下载JSON文件",
-                    data=f.read(),
-                    file_name=filename,
-                    mime="application/json"
-                )
-        else:
-            st.error("文件不存在")
-    except Exception as e:
-        st.error(f"下载失败: {str(e)}")
+	if mode == '📄 单文件模式':
+		st.subheader('📁 上传查询文件（Excel/CSV/TXT）')
+		uploaded = st.file_uploader('选择一个包含查询列表的文件：', type=['xlsx', 'xls', 'csv', 'txt'])
+		if uploaded is not None:
+			# 将上传文件保存到临时文件，再复用现有 QueryLoader 逻辑
+			with tempfile.NamedTemporaryFile(delete=False, suffix=f".{uploaded.name.split('.')[-1]}") as tmp:
+				tmp.write(uploaded.read())
+				tmp_path = tmp.name
+			
+			loader = QueryLoader()
+			queries = loader.load_queries(tmp_path)
+			st.success(f'已读取 {len(queries)} 条查询')
+			if queries:
+				with st.expander('查看查询预览', expanded=False):
+					st.write(pd.DataFrame({'查询': queries}))
 
-def download_all_files():
-    """下载所有输出文件"""
-    try:
-        output_dir = "outputs"
-        if not os.path.exists(output_dir):
-            st.error("输出目录不存在")
-            return
-        
-        # 创建ZIP文件
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        zip_filename = f'resume_extraction_{timestamp}.zip'
-        zip_path = os.path.join(output_dir, zip_filename)
-        
-        with zipfile.ZipFile(zip_path, 'w') as zipf:
-            for filename in os.listdir(output_dir):
-                if filename.endswith(('.xlsx', '.json')):
-                    filepath = os.path.join(output_dir, filename)
-                    zipf.write(filepath, filename)
-        
-        # 提供下载
-        with open(zip_path, "rb") as f:
-            st.download_button(
-                label="点击下载所有文件(ZIP)",
-                data=f.read(),
-                file_name=zip_filename,
-                mime="application/zip"
-            )
-        
-        # 删除临时ZIP文件
-        os.remove(zip_path)
-        
-    except Exception as e:
-        st.error(f"打包下载失败: {str(e)}")
+	else:
+		st.subheader('📁 批量文件名生成查询')
+		batch_files = st.file_uploader('选择多个任意类型文件：系统仅提取文件名', accept_multiple_files=True)
+		if batch_files:
+			file_names = [bf.name for bf in batch_files]
+			queries = [f"{strip_ext(name)}的简历情况" for name in file_names]
+			st.success(f'已从 {len(file_names)} 个文件名生成 {len(queries)} 条查询')
+			with st.expander('查看生成的查询', expanded=True):
+				st.write(pd.DataFrame({'文件名': file_names, '生成的查询': queries}))
 
-if __name__ == "__main__":
-    main()
+	# ——— 开始提取 ———
+	st.divider()
+	can_run = bool(queries)
+	run = st.button('🚀 开始提取', disabled=not can_run)
+	if run:
+		# 设置执行状态
+		st.session_state.is_running = True
+		st.info("🚀 开始执行简历提取任务...")
+		
+		# 使用日志捕获器捕获print输出
+		with capture_logs(log_container) as log_capture:
+			# 显示执行进度
+			progress_bar = st.progress(0)
+			status_text = st.empty()
+			
+			with st.spinner('正在提取简历信息，请稍候...'):
+				extractor = ResumeExtractor(api_key, base_url, user_id)
+				data = extractor.batch_extract_resumes(queries)
+			
+			# 执行完成后更新日志显示
+			log_capture.update_display()
+			
+			# 更新进度条
+			progress_bar.progress(100)
+			status_text.success("✅ 简历提取任务完成！")
+			
+			# 设置执行完成状态
+			st.session_state.is_running = False
+
+		if not data:
+			st.error('没有成功提取到任何简历数据')
+			return
+
+		# 摘要信息
+		summary = extractor.get_extraction_summary()
+		st.success('提取完成！下面是摘要信息：')
+		col1, col2, col3, col4 = st.columns(4)
+		col1.metric('总提取数量', summary.get('total_count', 0))
+		col2.metric('成功提取', summary.get('successful_extractions', 0))
+		col3.metric('不同姓名数', len(summary.get('unique_names', [])))
+		col4.metric('学历类型数', len(summary.get('education_levels', [])))
+
+		# 数据预览
+		with st.expander('查看提取明细（前100行）', expanded=False):
+			st.dataframe(pd.DataFrame(data).head(100), use_container_width=True)
+
+		# 下载区
+		st.subheader('📥 下载结果文件')
+		excel_bytes = to_excel_bytes(data, sheet_name='简历信息')
+		json_str = json.dumps(data, ensure_ascii=False, indent=2)
+		st.download_button('📊 下载Excel', data=excel_bytes, file_name=f"resume_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx", mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+		st.download_button('📄 下载JSON', data=json_str.encode('utf-8'), file_name=f"resume_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json", mime='application/json')
+
+		# 失败查询
+		failed = getattr(extractor, 'failed_queries', [])
+		if failed:
+			st.warning(f'有 {len(failed)} 条查询失败，可下载明细。')
+			failed_bytes = to_failed_queries_excel_bytes(failed)
+			st.download_button('⚠️ 下载失败查询（Excel）', data=failed_bytes, file_name=f"failed_queries_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx", mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+
+if __name__ == '__main__':
+	main()
