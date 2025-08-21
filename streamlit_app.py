@@ -76,8 +76,8 @@ def build_zip_bytes(files: List[Tuple[str, bytes]]) -> bytes:
 
 
 def main():
-	st.set_page_config(page_title='CMSR - 简历信息提取系统', layout='wide')
-	st.title('📋 CMSR - 简历信息提取系统')
+	st.set_page_config(page_title='CMSR - 简历智能分析系统', layout='wide')
+	st.title('📊 CMSR - 简历智能分析系统')
 
 	# 获取API配置（静默获取，不显示在界面上）
 	api_key, base_url, user_id = get_api_config_from_secrets()
