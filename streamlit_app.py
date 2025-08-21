@@ -14,8 +14,11 @@ from resume_extractor import ResumeExtractor
 from resume_scorer import ResumeScorer
 from query_loader import QueryLoader
 
-# 硬编码评分 API Key（按你的要求）
+# 硬编码API配置（按你的要求）
+EXTRACT_API_KEY = 'd2a7gnen04uuiosfsnk0'
 SCORE_API_KEY_HARDCODED = 'd2ji4jh6ht5pktrvmql0'
+BASE_URL = 'https://aiagentplatform.cmft.com'
+USER_ID = 'Siga'
 
 # 运行时检查第三方平台SDK是否可用，给出更友好的提示
 try:
@@ -26,10 +29,8 @@ except Exception:
 
 
 def get_api_config_from_secrets() -> Tuple[str, str, str]:
-	api_key = st.secrets.get('RESUME_API_KEY') or st.secrets.get('API_KEY')
-	base_url = st.secrets.get('RESUME_BASE_URL') or st.secrets.get('BASE_URL')
-	user_id = st.secrets.get('RESUME_USER_ID') or st.secrets.get('USER_ID')
-	return api_key, base_url, user_id
+	# 改为返回硬编码配置，不再从 Secrets 读取
+	return EXTRACT_API_KEY, BASE_URL, USER_ID
 
 
 def get_score_key_from_secrets() -> str:
@@ -80,18 +81,10 @@ def main():
 
 	# ——— 侧边栏：API 配置（支持 Secrets 默认 + 手动覆盖） ———
 	with st.sidebar:
-		st.subheader('⚙️ API 配置（仅从 Secrets 读取）')
+		st.subheader('⚙️ 运行配置（代码内写死）')
 		api_key, base_url, user_id = get_api_config_from_secrets()
 		score_api_key_input = get_score_key_from_secrets()
-
-		missing = []
-		if not api_key: missing.append('RESUME_API_KEY')
-		if not base_url: missing.append('RESUME_BASE_URL')
-		if not user_id: missing.append('RESUME_USER_ID')
-		if missing:
-			st.error('未配置 Secrets：' + ', '.join(missing))
-		else:
-			st.success('已检测到 Secrets 配置')
+		st.caption('本应用不使用 Secrets。')
 
 		if not _HAS_AIA:
 			st.warning('未检测到 aiagentplatformpy。若为私有库，云端无法直接安装，请使用带该库的自定义环境或私有包镜像；或联系管理员提供公共可安装版本。')
@@ -151,14 +144,8 @@ def main():
 				st.download_button('📝 下载查询TXT', data=txt_buf.getvalue().encode('utf-8'), file_name=f"batch_queries_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt", mime='text/plain')
 
 	st.divider()
-	can_extract = bool(queries) and all([api_key, base_url, user_id])
-	# 评分要求提供独立评分Key，不再兜底
-	can_score = bool(queries) and all([score_api_key_input, base_url, user_id])
-	col_a, col_b = st.columns(2)
-	with col_a:
-		do_extract = st.button('🚀 开始提取', disabled=not can_extract)
-	with col_b:
-		do_score = st.button('🏷️ 开始评分', disabled=not can_score)
+	can_run = bool(queries)
+	run = st.button('🚀 开始提取与评分', disabled=not can_run)
 
 	# 使用 session_state 保存阶段性结果
 	if 'extracted_results' not in st.session_state:
@@ -170,8 +157,8 @@ def main():
 	if 'score_error' not in st.session_state:
 		st.session_state.score_error = None
 
-	# 提取流程
-	if do_extract:
+	# 提取流程与评分流程（合并按钮顺序执行）
+	if run:
 		progress_ex = st.progress(0, text='提取开始...')
 		# 初始化/清空提取日志
 		st.session_state['extract_logs'] = []
@@ -216,7 +203,7 @@ def main():
 		st.session_state.extracted_failed = failed
 
 	# 评分流程
-	if do_score:
+	if run:
 		progress_sc = st.progress(0, text='评分开始...')
 		# 初始化/清空评分日志
 		st.session_state['score_logs'] = []
