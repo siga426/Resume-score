@@ -205,17 +205,49 @@ def main():
 				if not s:
 					return
 				st.session_state['extract_logs'].append(s)
-				# 只对新内容进行流式输出
-				new_text = s
-				for i in range(1, len(new_text) + 1):
+				
+				# 判断是否为智能体返回内容（包含JSON数据或特定关键词）
+				is_agent_response = (
+					'{' in s and '}' in s or  # 包含JSON
+					'姓名' in s or '性别' in s or '学历' in s or  # 包含简历字段
+					'本科' in s or '硕士' in s or '专业' in s    # 包含简历关键词
+				)
+				
+				if is_agent_response:
+					# 智能体返回内容：流式输出
+					new_text = s
+					for i in range(1, len(new_text) + 1):
+						ex_log_placeholder.text_area(
+							label='提取日志',
+							value=''.join(st.session_state['extract_logs']),
+							height=200,
+							disabled=True,
+							key=f"extract_log_{len(st.session_state['extract_logs'])}_{i}",
+							help="智能体返回内容流式输出"
+						)
+						time.sleep(0.01)  # 控制打字速度
+				else:
+					# 其他内容：正常显示
 					ex_log_placeholder.text_area(
 						label='提取日志',
-						value=''.join(st.session_state['extract_logs'][:-1]) + new_text[:i],
+						value=''.join(st.session_state['extract_logs']),
 						height=200,
 						disabled=True,
-						key=f"extract_log_{len(st.session_state['extract_logs'])}_{i}"  # 唯一key
+						key=f"extract_log_normal_{len(st.session_state['extract_logs'])}"
 					)
-					time.sleep(0.01)  # 控制打字速度
+				
+				# 自动滚动到底部
+				st.markdown(
+					f"""
+					<script>
+					const textArea = document.querySelector('textarea[data-testid="stTextArea"]');
+					if (textArea) {{
+						textArea.scrollTop = textArea.scrollHeight;
+					}}
+					</script>
+					""",
+					unsafe_allow_html=True
+				)
 
 		extractor = ResumeExtractor(api_key, base_url, user_id)
 		# 复用提取会话ID
@@ -258,17 +290,49 @@ def main():
 				if not s:
 					return
 				st.session_state['score_logs'].append(s)
-				# 只对新内容进行流式输出
-				new_text = s
-				for i in range(1, len(new_text) + 1):
+				
+				# 判断是否为智能体返回内容（包含JSON数据或特定关键词）
+				is_agent_response = (
+					'{' in s and '}' in s or  # 包含JSON
+					'本科院校分' in s or '硕士院校分' in s or '总得分' in s or  # 包含评分字段
+					'专业符合度' in s or '学习成绩分' in s or '英语水平分' in s  # 包含评分关键词
+				)
+				
+				if is_agent_response:
+					# 智能体返回内容：流式输出
+					new_text = s
+					for i in range(1, len(new_text) + 1):
+						sc_placeholder.text_area(
+							label='评分日志',
+							value=''.join(st.session_state['score_logs']),
+							height=200,
+							disabled=True,
+							key=f"score_log_{len(st.session_state['score_logs'])}_{i}",
+							help="智能体返回内容流式输出"
+						)
+						time.sleep(0.01)  # 控制打字速度
+				else:
+					# 其他内容：正常显示
 					sc_placeholder.text_area(
 						label='评分日志',
-						value=''.join(st.session_state['score_logs'][:-1]) + new_text[:i],
+						value=''.join(st.session_state['score_logs']),
 						height=200,
 						disabled=True,
-						key=f"score_log_{len(st.session_state['score_logs'])}_{i}"  # 唯一key
+						key=f"score_log_normal_{len(st.session_state['score_logs'])}"
 					)
-					time.sleep(0.01)  # 控制打字速度
+				
+				# 自动滚动到底部
+				st.markdown(
+					f"""
+					<script>
+					const textArea = document.querySelector('textarea[data-testid="stTextArea"]');
+					if (textArea) {{
+						textArea.scrollTop = textArea.scrollHeight;
+					}}
+					</script>
+					""",
+					unsafe_allow_html=True
+				)
 
 		# 仅使用评分Key，不使用兜底
 		use_key = score_api_key_input
