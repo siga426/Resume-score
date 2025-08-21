@@ -192,9 +192,13 @@ def main():
 				if not s:
 					return
 				st.session_state['extract_logs'].append(s)
-				# 使用 markdown 显示日志内容
-				ex_log_placeholder.markdown(
-					f"```\n{''.join(st.session_state['extract_logs'])}\n```"
+				# 使用 text_area 保持滚动功能，使用动态key
+				ex_log_placeholder.text_area(
+					label='提取日志',
+					value=''.join(st.session_state['extract_logs']),
+					height=200,
+					disabled=True,
+					key=f'extract_log_{len(st.session_state["extract_logs"])}'  # 动态key
 				)
 
 		extractor = ResumeExtractor(api_key, base_url, user_id)
@@ -238,9 +242,13 @@ def main():
 				if not s:
 					return
 				st.session_state['score_logs'].append(s)
-				# 使用 markdown 显示日志内容
-				sc_placeholder.markdown(
-					f"```\n{''.join(st.session_state['score_logs'])}\n```"
+				# 使用 text_area 保持滚动功能，使用动态key
+				sc_placeholder.text_area(
+					label='评分日志',
+					value=''.join(st.session_state['score_logs']),
+					height=200,
+					disabled=True,
+					key=f'score_log_{len(st.session_state["score_logs"])}'  # 动态key
 				)
 
 		# 仅使用评分Key，不使用兜底
