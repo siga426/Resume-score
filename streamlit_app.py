@@ -147,7 +147,8 @@ def main():
 
 	st.divider()
 	can_extract = bool(queries) and all([api_key, base_url, user_id])
-	can_score = bool(queries) and all([(score_api_key_input or api_key), base_url, user_id])
+	# 评分要求提供独立评分Key，不再兜底
+	can_score = bool(queries) and all([score_api_key_input, base_url, user_id])
 	col_a, col_b = st.columns(2)
 	with col_a:
 		do_extract = st.button('🚀 开始提取', disabled=not can_extract)
@@ -194,7 +195,8 @@ def main():
 	# 评分流程
 	if do_score:
 		progress_sc = st.progress(0, text='评分开始...')
-		use_key = score_api_key_input or api_key
+		# 仅使用评分Key，不使用兜底
+		use_key = score_api_key_input
 		scorer = ResumeScorer(use_key, base_url, user_id)
 		# 复用评分会话ID
 		if st.session_state.get('score_conversation_id'):
@@ -215,17 +217,10 @@ def main():
 		for idx, q in enumerate(score_queries, 1):
 			try:
 				info = scorer.process_score_query(q)
-			except Exception:
+			except Exception as e:
 				info = None
-			if info is None and use_key != api_key:
-				# 兜底到提取Key
-				try:
-					scorer_fb = ResumeScorer(api_key, base_url, user_id)
-					scorer_fb.chat_api.create_or_load_conversation(use_existing=True)
-					info = scorer_fb.process_score_query(q)
-					score_error = '评分APIKey无效，已使用简历APIKey兜底'
-				except Exception as e2:
-					score_error = f'评分调用失败: {e2}'
+			if info is None:
+				score_error = f'评分调用失败: {e}' if 'e' in locals() else '评分调用失败'
 			if info:
 				score_data.append(info)
 			progress_sc.progress(int(idx * 100 / len(score_queries)), text=f'评分进度：{idx}/{len(score_queries)}')
