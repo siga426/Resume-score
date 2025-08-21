@@ -314,9 +314,7 @@ def main():
 			st.subheader('📥 下载提取结果')
 			ts = datetime.now().strftime('%Y%m%d_%H%M%S')
 			excel_bytes = to_excel_bytes(results, sheet_name='简历信息')
-			json_bytes = json.dumps(results, ensure_ascii=False, indent=2).encode('utf-8')
 			st.download_button('📊 下载简历Excel', data=excel_bytes, file_name=f"resume_data_{ts}.xlsx", mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-			st.download_button('📄 下载简历JSON', data=json_bytes, file_name=f"resume_data_{ts}.json", mime='application/json')
 			if failed:
 				failed_bytes = to_failed_queries_excel_bytes(failed)
 				st.download_button('⚠️ 下载失败查询（Excel）', data=failed_bytes, file_name=f"failed_queries_{ts}.xlsx", mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
@@ -346,15 +344,15 @@ def main():
 							return query_str[:-5]  # 移除"的简历评分"
 						return query_str
 					
-					df_scores_sorted['文件名'] = df_scores_sorted['评分查询'].apply(extract_filename)
+					df_scores_sorted['姓名'] = df_scores_sorted['评分查询'].apply(extract_filename)
 				
 				# 重新排列列顺序：文件名、总分、其他得分项
 				score_columns = list(df_scores_sorted.columns)
 				ordered_columns = []
 				
 				# 第一列：文件名
-				if '文件名' in score_columns:
-					ordered_columns.append('文件名')
+				if '姓名' in score_columns:
+					ordered_columns.append('姓名')
 				
 				# 第二列：总分
 				if '总得分' in score_columns:
@@ -394,8 +392,6 @@ def main():
 			# 下载评分结果
 			st.subheader('📥 下载评分结果')
 			ts = datetime.now().strftime('%Y%m%d_%H%M%S')
-			scores_json_bytes = json.dumps(score_data, ensure_ascii=False, indent=2).encode('utf-8')
-			st.download_button('🏷️ 下载评分JSON', data=scores_json_bytes, file_name=f"resume_scores_{ts}.json", mime='application/json')
 			# 若有提取结果，则提供合并Excel与ZIP
 			if st.session_state.extracted_results:
 				combined_output = io.BytesIO()
