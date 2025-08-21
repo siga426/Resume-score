@@ -80,22 +80,22 @@ def main():
 	st.title('📋 CMSR - 简历信息提取系统')
 
 	# ——— 主界面配置信息 ———
-	st.subheader('⚙️ 运行配置（代码内写死）')
+	# st.subheader('⚙️ 运行配置（代码内写死）')
 	api_key, base_url, user_id = get_api_config_from_secrets()
 	score_api_key_input = get_score_key_from_secrets()
-	st.caption('本应用不使用 Secrets。')
+	# st.caption('本应用不使用 Secrets。')
 
 	if not _HAS_AIA:
 		st.warning('未检测到 aiagentplatformpy。若为私有库，云端无法直接安装，请使用带该库的自定义环境或私有包镜像；或联系管理员提供公共可安装版本。')
 
 	st.markdown('---')
 	st.subheader('📌 使用提示')
-	st.markdown('- 支持 Excel/CSV/TXT 三种输入方式')
+	st.markdown('- 支持 Excel导入查询')
 	st.markdown('- 也可从文件名快速生成查询或手动粘贴查询')
-	st.markdown('- 处理完成后可下载合并Excel（信息+评分）、单独Excel、JSON、失败查询与ZIP')
+	st.markdown('- 处理完成后可下载Excel（信息+评分）、失败查询与ZIP')
 
 	# ——— 模式选择 ———
-	mode = st.radio('选择模式：', ['📄 单文件上传', '📁 从文件名生成', '📝 手动批量输入'], horizontal=True)
+	mode = st.radio('选择模式：', ['📄 Excel导入查询', '📁 从文件名生成查询', '📝 手动粘贴查询'], horizontal=True)
 
 	queries: List[str] = []
 
@@ -364,15 +364,15 @@ def main():
 							return query_str[:-5]  # 移除"的简历评分"
 						return query_str
 					
-					df_scores_sorted['姓名'] = df_scores_sorted['评分查询'].apply(extract_filename)
+					df_scores_sorted['简历信息'] = df_scores_sorted['评分查询'].apply(extract_filename)
 				
 				# 重新排列列顺序：文件名、总分、其他得分项
 				score_columns = list(df_scores_sorted.columns)
 				ordered_columns = []
 				
 				# 第一列：文件名
-				if '姓名' in score_columns:
-					ordered_columns.append('姓名')
+				if '简历信息' in score_columns:
+					ordered_columns.append('简历信息')
 				
 				# 第二列：总分
 				if '总得分' in score_columns:
