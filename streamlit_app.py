@@ -205,12 +205,12 @@ def main():
 				if not s:
 					return
 				st.session_state['extract_logs'].append(s)
-				# 流式输出效果：逐字符显示
-				full_text = ''.join(st.session_state['extract_logs'])
-				for i in range(1, len(full_text) + 1):
+				# 只对新内容进行流式输出
+				new_text = s
+				for i in range(1, len(new_text) + 1):
 					ex_log_placeholder.text_area(
 						label='提取日志',
-						value=full_text[:i],
+						value=''.join(st.session_state['extract_logs'][:-1]) + new_text[:i],
 						height=200,
 						disabled=True,
 						key=f"extract_log_{len(st.session_state['extract_logs'])}_{i}"  # 唯一key
@@ -258,12 +258,12 @@ def main():
 				if not s:
 					return
 				st.session_state['score_logs'].append(s)
-				# 流式输出效果：逐字符显示
-				full_text = ''.join(st.session_state['score_logs'])
-				for i in range(1, len(full_text) + 1):
+				# 只对新内容进行流式输出
+				new_text = s
+				for i in range(1, len(new_text) + 1):
 					sc_placeholder.text_area(
 						label='评分日志',
-						value=full_text[:i],
+						value=''.join(st.session_state['score_logs'][:-1]) + new_text[:i],
 						height=200,
 						disabled=True,
 						key=f"score_log_{len(st.session_state['score_logs'])}_{i}"  # 唯一key
