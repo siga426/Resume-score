@@ -172,13 +172,13 @@ def main():
 	ex_progress_placeholder = st.empty()
 	
 	ex_log_expander = st.expander('📜 提取日志', expanded=True)
-	ex_log_placeholder = ex_log_expander.container()
+	ex_log_placeholder = ex_log_expander.empty()
 
 	# 评分进度条
 	sc_progress_placeholder = st.empty()
 	
 	sc_expander = st.expander('📜 评分日志', expanded=True)
-	sc_placeholder = sc_expander.container()
+	sc_placeholder = sc_expander.empty()
 
 	# 提取流程与评分流程（合并按钮顺序执行）
 	if run:
@@ -192,8 +192,10 @@ def main():
 				if not s:
 					return
 				st.session_state['extract_logs'].append(s)
-				ex_log_placeholder.markdown(
-					''.join(st.session_state['extract_logs'])
+				# 使用 code 块显示日志，保持格式
+				ex_log_placeholder.code(
+					''.join(st.session_state['extract_logs']),
+					language=None
 				)
 
 		extractor = ResumeExtractor(api_key, base_url, user_id)
@@ -237,8 +239,10 @@ def main():
 				if not s:
 					return
 				st.session_state['score_logs'].append(s)
-				sc_placeholder.markdown(
-					''.join(st.session_state['score_logs'])
+				# 使用 code 块显示日志，保持格式
+				sc_placeholder.code(
+					''.join(st.session_state['score_logs']),
+					language=None
 				)
 
 		# 仅使用评分Key，不使用兜底
