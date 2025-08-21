@@ -10,12 +10,20 @@ class ResumeScorer:
 
     def __init__(self, api_key: str, base_url: str, user_id: str,
                  conversation_id_file: str = "conversation_id_score.json"):
-        self.chat_api = MultiRoundChatAPI(
-            api_key=api_key,
-            base_url=base_url,
-            user_id=user_id,
-            conversation_id_file=conversation_id_file
-        )
+        # 兼容旧版本 MultiRoundChatAPI（无 conversation_id_file 形参）
+        try:
+            self.chat_api = MultiRoundChatAPI(
+                api_key=api_key,
+                base_url=base_url,
+                user_id=user_id,
+                conversation_id_file=conversation_id_file
+            )
+        except TypeError:
+            self.chat_api = MultiRoundChatAPI(
+                api_key=api_key,
+                base_url=base_url,
+                user_id=user_id
+            )
         self.scored_data: List[Dict[str, Any]] = []
 
     def extract_json_from_response(self, response_text: str) -> Optional[Dict[str, Any]]:

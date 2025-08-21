@@ -168,7 +168,12 @@ def main():
 	if do_extract:
 		progress_ex = st.progress(0, text='提取开始...')
 		extractor = ResumeExtractor(api_key, base_url, user_id)
-		extractor.chat_api.create_or_load_conversation(use_existing=True)
+		# 复用提取会话ID
+		if st.session_state.get('extract_conversation_id'):
+			extractor.chat_api.conversation_id = st.session_state['extract_conversation_id']
+		else:
+			conv_id = extractor.chat_api.create_or_load_conversation(use_existing=True)
+			st.session_state['extract_conversation_id'] = conv_id
 		results = []
 		failed = []
 		for idx, q in enumerate(queries, 1):
@@ -191,7 +196,12 @@ def main():
 		progress_sc = st.progress(0, text='评分开始...')
 		use_key = score_api_key_input or api_key
 		scorer = ResumeScorer(use_key, base_url, user_id)
-		scorer.chat_api.create_or_load_conversation(use_existing=True)
+		# 复用评分会话ID
+		if st.session_state.get('score_conversation_id'):
+			scorer.chat_api.conversation_id = st.session_state['score_conversation_id']
+		else:
+			conv_id = scorer.chat_api.create_or_load_conversation(use_existing=True)
+			st.session_state['score_conversation_id'] = conv_id
 		def to_score_query(q: str) -> str:
 			base = str(q).strip()
 			for suf in ['的简历信息', '的简历情况', '的简历']:
