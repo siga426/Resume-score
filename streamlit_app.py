@@ -3,6 +3,7 @@ import io
 import json
 import zipfile
 import tempfile
+import contextlib
 from datetime import datetime
 from typing import List, Tuple
 
@@ -12,6 +13,9 @@ import pandas as pd
 from resume_extractor import ResumeExtractor
 from resume_scorer import ResumeScorer
 from query_loader import QueryLoader
+
+# 硬编码评分 API Key（按你的要求）
+SCORE_API_KEY_HARDCODED = 'd2ji4jh6ht5pktrvmql0'
 
 # 运行时检查第三方平台SDK是否可用，给出更友好的提示
 try:
@@ -29,7 +33,8 @@ def get_api_config_from_secrets() -> Tuple[str, str, str]:
 
 
 def get_score_key_from_secrets() -> str:
-	return st.secrets.get('RESUME_SCORE_API_KEY') or st.secrets.get('SCORE_API_KEY') or ''
+	# 改为返回硬编码的评分 Key，不再从 Secrets 读取
+	return SCORE_API_KEY_HARDCODED
 
 
 def strip_ext(filename: str) -> str:
@@ -168,6 +173,23 @@ def main():
 	# 提取流程
 	if do_extract:
 		progress_ex = st.progress(0, text='提取开始...')
+		# 初始化/清空提取日志
+		st.session_state['extract_logs'] = []
+		log_expander = st.expander('📜 提取日志', expanded=True)
+		log_placeholder = log_expander.empty()
+
+		class StreamlitAppendWriter(io.StringIO):
+			def write(self, s: str):
+				if not s:
+					return
+				st.session_state['extract_logs'].append(s)
+				log_placeholder.text_area(
+					label='提取日志',
+					value=''.join(st.session_state['extract_logs']),
+					height=200,
+					disabled=True
+				)
+
 		extractor = ResumeExtractor(api_key, base_url, user_id)
 		# 复用提取会话ID
 		if st.session_state.get('extract_conversation_id'):
@@ -177,24 +199,42 @@ def main():
 			st.session_state['extract_conversation_id'] = conv_id
 		results = []
 		failed = []
-		for idx, q in enumerate(queries, 1):
-			info = extractor.process_resume_query(q)
-			if info:
-				results.append(info)
-			else:
-				failed.append({
-					'序号': idx,
-					'查询内容': q,
-					'失败时间': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-					'失败原因': '提取失败或无返回数据或所有字段为空'
-				})
-			progress_ex.progress(int(idx * 100 / len(queries)), text=f'提取进度：{idx}/{len(queries)}')
+		with contextlib.redirect_stdout(StreamlitAppendWriter()):
+			for idx, q in enumerate(queries, 1):
+				info = extractor.process_resume_query(q)
+				if info:
+					results.append(info)
+				else:
+					failed.append({
+						'序号': idx,
+						'查询内容': q,
+						'失败时间': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+						'失败原因': '提取失败或无返回数据或所有字段为空'
+					})
+				progress_ex.progress(int(idx * 100 / len(queries)), text=f'提取进度：{idx}/{len(queries)}')
 		st.session_state.extracted_results = results
 		st.session_state.extracted_failed = failed
 
 	# 评分流程
 	if do_score:
 		progress_sc = st.progress(0, text='评分开始...')
+		# 初始化/清空评分日志
+		st.session_state['score_logs'] = []
+		sc_expander = st.expander('📜 评分日志', expanded=True)
+		sc_placeholder = sc_expander.empty()
+
+		class StreamlitScoreWriter(io.StringIO):
+			def write(self, s: str):
+				if not s:
+					return
+				st.session_state['score_logs'].append(s)
+				sc_placeholder.text_area(
+					label='评分日志',
+					value=''.join(st.session_state['score_logs']),
+					height=200,
+					disabled=True
+				)
+
 		# 仅使用评分Key，不使用兜底
 		use_key = score_api_key_input
 		scorer = ResumeScorer(use_key, base_url, user_id)
@@ -214,16 +254,17 @@ def main():
 		score_queries = [to_score_query(q) for q in queries]
 		score_data = []
 		score_error = None
-		for idx, q in enumerate(score_queries, 1):
-			try:
-				info = scorer.process_score_query(q)
-			except Exception as e:
-				info = None
-			if info is None:
-				score_error = f'评分调用失败: {e}' if 'e' in locals() else '评分调用失败'
-			if info:
-				score_data.append(info)
-			progress_sc.progress(int(idx * 100 / len(score_queries)), text=f'评分进度：{idx}/{len(score_queries)}')
+		with contextlib.redirect_stdout(StreamlitScoreWriter()):
+			for idx, q in enumerate(score_queries, 1):
+				try:
+					info = scorer.process_score_query(q)
+				except Exception as e:
+					info = None
+				if info is None:
+					score_error = f'评分调用失败: {e}' if 'e' in locals() else '评分调用失败'
+				if info:
+					score_data.append(info)
+				progress_sc.progress(int(idx * 100 / len(score_queries)), text=f'评分进度：{idx}/{len(score_queries)}')
 		st.session_state.score_results = score_data
 		st.session_state.score_error = score_error
 
