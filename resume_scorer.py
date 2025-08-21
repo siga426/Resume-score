@@ -92,7 +92,7 @@ class ResumeScorer:
 
     def process_score_query(self, query: str) -> Optional[Dict[str, Any]]:
         try:
-            print(f"发送评分查询: {query}")
+            # print(f"发送评分查询: {query}")
             response = self.chat_api.send_message(query)
             # if SHOW_RESPONSE_DEBUG:
                 # print(f"收到响应: {response}")
@@ -122,7 +122,8 @@ class ResumeScorer:
         results: List[Dict[str, Any]] = []
         failed: List[Dict[str, Any]] = []
         for idx, q in enumerate(score_queries, 1):
-            print(f"\n=== 处理第{idx}个评分查询 ===\n查询: {q}")
+            # print(f"\n=== 处理第{idx}个评分查询 ===\n查询: {q}")
+            print(f"\n=== 处理第{idx}个评分查询 ===")
             info = self.process_score_query(q)
             if info:
                 results.append(info)
