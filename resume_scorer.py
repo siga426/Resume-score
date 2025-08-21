@@ -4,9 +4,6 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional
 from multi_round_chat import MultiRoundChatAPI
 
-# 控制是否输出完整响应内容的调试开关
-SHOW_RESPONSE_DEBUG = False
-
 class ResumeScorer:
     """简历评分器"""
 
