@@ -16,48 +16,48 @@ from query_loader import QueryLoader
 
 # 创建字符串字典存储所有print输出
 class PrintOutputCollector:
-    """收集所有print输出并存储到字典中"""
-    
-    def __init__(self):
-        self.original_stdout = sys.stdout
-        self.output_dict = {}
-        self.current_key = None
-        self.current_output = []
-    
-    def write(self, text):
-        """重写stdout的write方法"""
-        if text.strip():
-            # 保存到原始stdout
-            self.original_stdout.write(text)
-            self.original_stdout.flush()
-            
-            # 添加到当前输出列表
-            if self.current_key:
-                self.current_output.append(text.rstrip())
-    
-    def flush(self):
-        """重写stdout的flush方法"""
-        self.original_stdout.flush()
-    
-    def start_collecting(self, key: str):
-        """开始收集指定键的输出"""
-        self.current_key = key
-        self.current_output = []
-    
-    def stop_collecting(self):
-        """停止收集并保存到字典"""
-        if self.current_key and self.current_output:
-            self.output_dict[self.current_key] = '\n'.join(self.current_output)
-        self.current_key = None
-        self.current_output = []
-    
-    def get_all_outputs(self) -> Dict[str, str]:
-        """获取所有收集的输出"""
-        return self.output_dict.copy()
-    
-    def clear_outputs(self):
-        """清空所有输出"""
-        self.output_dict.clear()
+	"""收集所有print输出并存储到字典中"""
+	
+	def __init__(self):
+		self.original_stdout = sys.stdout
+		self.output_dict = {}
+		self.current_key = None
+		self.current_output = []
+	
+	def write(self, text):
+		"""重写stdout的write方法"""
+		if text.strip():
+			# 保存到原始stdout
+			self.original_stdout.write(text)
+			self.original_stdout.flush()
+			
+			# 添加到当前输出列表
+			if self.current_key:
+				self.current_output.append(text.rstrip())
+	
+	def flush(self):
+		"""重写stdout的flush方法"""
+		self.original_stdout.flush()
+	
+	def start_collecting(self, key: str):
+		"""开始收集指定键的输出"""
+		self.current_key = key
+		self.current_output = []
+	
+	def stop_collecting(self):
+		"""停止收集并保存到字典"""
+		if self.current_key and self.current_output:
+			self.output_dict[self.current_key] = '\n'.join(self.current_output)
+		self.current_key = None
+		self.current_output = []
+	
+	def get_all_outputs(self) -> Dict[str, str]:
+		"""获取所有收集的输出"""
+		return self.output_dict.copy()
+	
+	def clear_outputs(self):
+		"""清空所有输出"""
+		self.output_dict.clear()
 
 
 # 全局输出收集器
@@ -121,30 +121,40 @@ def to_failed_queries_excel_bytes(failed_queries: List[dict]) -> bytes:
 
 
 def simulate_streaming_output(text: str, container, delay: float = 0.05):
-    """模拟流式输出效果"""
-    if not text:
-        return
-    
-    # 清空容器
-    container.empty()
-    
-    # 逐字输出
-    current_text = ""
-    for char in text:
-        current_text += char
-        with container:
-            st.code(current_text, language="text")
-        time.sleep(delay)
-    
-    # 最终显示完整文本
-    with container:
-        st.code(text, language="text")
+	"""模拟流式输出效果"""
+	if not text:
+		return
+	
+	# 清空容器
+	container.empty()
+	
+	# 逐字输出
+	current_text = ""
+	for char in text:
+		current_text += char
+		with container:
+			st.code(current_text, language="text")
+		time.sleep(delay)
+	
+	# 最终显示完整文本
+	with container:
+		st.code(text, language="text")
 
 
 def main():
 	st.set_page_config(page_title='CMSR - 简历信息提取系统', layout='wide')
 	st.title('📋 CMSR - 简历信息提取系统')
 	st.caption('在云端运行，无需本地部署。支持单文件查询与批量文件名生成查询。')
+	
+	# 初始化会话状态
+	if 'extraction_data' not in st.session_state:
+		st.session_state.extraction_data = None
+	if 'extraction_summary' not in st.session_state:
+		st.session_state.extraction_summary = None
+	if 'outputs' not in st.session_state:
+		st.session_state.outputs = {}
+	if 'error_message' not in st.session_state:
+		st.session_state.error_message = None
 	
 	# 从 Streamlit Secrets 读取 API 配置（不显示在界面上）
 	api_key, base_url, user_id = get_api_config()
@@ -192,38 +202,50 @@ def main():
 		progress_bar = st.progress(0)
 		status_text = st.empty()
 		
-		# 重定向stdout到收集器
-		sys.stdout = output_collector
+		# 每次运行前清空旧结果
+		st.session_state.extraction_data = None
+		st.session_state.extraction_summary = None
+		st.session_state.outputs = {}
+		st.session_state.error_message = None
 		
-		with st.spinner('正在提取简历信息，请稍候...'):
-			# 开始收集输出
+		# 重定向stdout到收集器并执行
+		started_collect = False
+		try:
+			sys.stdout = output_collector
 			output_collector.start_collecting("resume_extraction")
+			started_collect = True
 			
-			extractor = ResumeExtractor(api_key, base_url, user_id)
-			data = extractor.batch_extract_resumes(queries)
-			
-			# 停止收集输出
-			output_collector.stop_collecting()
-		
-		# 恢复原始stdout
-		sys.stdout = output_collector.original_stdout
+			with st.spinner('正在提取简历信息，请稍候...'):
+				extractor = ResumeExtractor(api_key, base_url, user_id)
+				data = extractor.batch_extract_resumes(queries)
+				# 保存结果到会话
+				st.session_state.extraction_data = data
+				st.session_state.extraction_summary = extractor.get_extraction_summary()
+		finally:
+			# 停止收集并恢复stdout
+			try:
+				if started_collect:
+					output_collector.stop_collecting()
+				st.session_state.outputs = output_collector.get_all_outputs()
+			except Exception:
+				pass
+			finally:
+				sys.stdout = output_collector.original_stdout
 		
 		# 更新进度条
 		progress_bar.progress(100)
 		status_text.success("✅ 简历提取任务完成！")
 
-		if not data:
-			st.error('没有成功提取到任何简历数据')
-			return
-
-		# 摘要信息
-		summary = extractor.get_extraction_summary()
+	# ——— 持久化结果显示（避免按钮触发后的重跑导致内容消失） ———
+	if st.session_state.extraction_data:
+		data = st.session_state.extraction_data
+		summary = st.session_state.extraction_summary or {}
 		st.success('提取完成！下面是摘要信息：')
 		col1, col2, col3, col4 = st.columns(4)
 		col1.metric('总提取数量', summary.get('total_count', 0))
 		col2.metric('成功提取', summary.get('successful_extractions', 0))
-		col3.metric('不同姓名数', len(summary.get('unique_names', [])))
-		col4.metric('学历类型数', len(summary.get('education_levels', [])))
+		col3.metric('不同姓名数', len(summary.get('unique_names', []) or []))
+		col4.metric('学历类型数', len(summary.get('education_levels', []) or []))
 
 		# 数据预览
 		with st.expander('查看提取明细（前100行）', expanded=False):
@@ -237,14 +259,16 @@ def main():
 		st.download_button('📄 下载JSON', data=json_str.encode('utf-8'), file_name=f"resume_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json", mime='application/json')
 
 		# 失败查询
-		failed = getattr(extractor, 'failed_queries', [])
+		failed = getattr(ResumeExtractor, '__unused__', None)  # 占位，避免未定义
+		failed = getattr(extractor, 'failed_queries', []) if 'extractor' in locals() else []
 		if failed:
 			st.warning(f'有 {len(failed)} 条查询失败，可下载明细。')
 			failed_bytes = to_failed_queries_excel_bytes(failed)
 			st.download_button('⚠️ 下载失败查询（Excel）', data=failed_bytes, file_name=f"failed_queries_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx", mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 	# ——— 流式输出显示区域 ———
-	if output_collector.get_all_outputs():
+	all_outputs_state = st.session_state.outputs or output_collector.get_all_outputs()
+	if all_outputs_state:
 		st.divider()
 		st.subheader("📺 程序输出流式显示")
 		st.caption("显示程序执行过程中的所有print输出，模拟流式输出效果")
@@ -252,44 +276,41 @@ def main():
 		# 创建流式输出容器
 		streaming_container = st.container()
 		
-		# 获取所有输出
-		all_outputs = output_collector.get_all_outputs()
-		
 		# 显示输出键列表
-		if all_outputs:
-			output_key = st.selectbox(
-				"选择要显示的输出：",
-				options=list(all_outputs.keys()),
-				index=0
-		 )
-			
-			selected_output = all_outputs[output_key]
-			
-			# 控制按钮
-			col1, col2, col3 = st.columns(3)
-			with col1:
-				if st.button("🎬 开始流式播放", key="start_streaming"):
-					simulate_streaming_output(selected_output, streaming_container, delay=0.03)
-			with col2:
-				if st.button("⏸️ 暂停/继续", key="pause_streaming"):
-					st.info("流式播放已暂停")
-			with col3:
-				if st.button("🗑️ 清空输出", key="clear_outputs"):
-					output_collector.clear_outputs()
-					st.rerun()
-			
-			# 显示完整输出
-			with st.expander("📋 查看完整输出", expanded=False):
-				st.code(selected_output, language="text")
-			
-			# 下载输出
-			if st.button("📥 下载输出内容", key="download_output"):
-				st.download_button(
-					"确认下载",
-					selected_output,
-					file_name=f"program_output_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-					mime="text/plain"
-				)
+		output_key = st.selectbox(
+			"选择要显示的输出：",
+			options=list(all_outputs_state.keys()),
+			index=0
+		)
+		
+		selected_output = all_outputs_state[output_key]
+		
+		# 控制按钮
+		col1, col2, col3 = st.columns(3)
+		with col1:
+			if st.button("🎬 开始流式播放", key="start_streaming"):
+				simulate_streaming_output(selected_output, streaming_container, delay=0.03)
+		with col2:
+			if st.button("⏸️ 暂停/继续", key="pause_streaming"):
+				st.info("流式播放已暂停")
+		with col3:
+			if st.button("🗑️ 清空输出", key="clear_outputs"):
+				output_collector.clear_outputs()
+				st.session_state.outputs = {}
+				st.rerun()
+		
+		# 显示完整输出
+		with st.expander("📋 查看完整输出", expanded=False):
+			st.code(selected_output, language="text")
+		
+		# 下载输出
+		if st.button("📥 下载输出内容", key="download_output"):
+			st.download_button(
+				"确认下载",
+				selected_output,
+				file_name=f"program_output_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+				mime="text/plain"
+			)
 
 
 if __name__ == '__main__':
