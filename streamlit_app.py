@@ -77,7 +77,96 @@ def build_zip_bytes(files: List[Tuple[str, bytes]]) -> bytes:
 
 def main():
 	st.set_page_config(page_title='CMSR - 简历信息提取系统', layout='wide')
-	st.title('📋 CMSR - 简历信息提取系统')
+	
+	# 自定义CSS样式
+	st.markdown("""
+	<style>
+	/* 主标题样式 */
+	.main-header {
+		background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+		padding: 2rem;
+		border-radius: 15px;
+		margin-bottom: 2rem;
+		text-align: center;
+		color: white;
+		box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+	}
+	
+	/* 卡片样式 */
+	.stCard {
+		background: white;
+		padding: 1.5rem;
+		border-radius: 10px;
+		box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+		margin: 1rem 0;
+		border-left: 4px solid #667eea;
+	}
+	
+	/* 按钮样式 */
+	.stButton > button {
+		background: linear-gradient(45deg, #667eea, #764ba2);
+		color: white;
+		border: none;
+		border-radius: 25px;
+		padding: 0.75rem 2rem;
+		font-weight: 600;
+		transition: all 0.3s ease;
+		box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+	}
+	
+	.stButton > button:hover {
+		transform: translateY(-2px);
+		box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+	}
+	
+	/* 指标卡片样式 */
+	.metric-card {
+		background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+		color: white;
+		padding: 1.5rem;
+		border-radius: 15px;
+		text-align: center;
+		box-shadow: 0 8px 25px rgba(240, 147, 251, 0.3);
+	}
+	
+	/* 成功提示样式 */
+	.success-box {
+		background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+		color: white;
+		padding: 1rem;
+		border-radius: 10px;
+		margin: 1rem 0;
+		text-align: center;
+		font-weight: 600;
+	}
+	
+	/* 警告提示样式 */
+	.warning-box {
+		background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+		color: white;
+		padding: 1rem;
+		border-radius: 10px;
+		margin: 1rem 0;
+		text-align: center;
+		font-weight: 600;
+	}
+	
+	/* 数据表格样式 */
+	.dataframe {
+		border-radius: 10px;
+		overflow: hidden;
+		box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+	}
+	
+	/* 进度条样式 */
+	.stProgress > div > div > div {
+		background: linear-gradient(90deg, #667eea, #764ba2);
+	}
+	</style>
+	""", unsafe_allow_html=True)
+	
+	# 使用自定义样式的标题
+	st.markdown('<div class="main-header"><h1>📋 CMSR - 简历信息提取系统</h1></div>', unsafe_allow_html=True)
 
 	# 获取API配置（静默获取，不显示在界面上）
 	api_key, base_url, user_id = get_api_config_from_secrets()
@@ -87,7 +176,36 @@ def main():
 		st.warning('未检测到 aiagentplatformpy。若为私有库，云端无法直接安装，请使用带该库的自定义环境或私有包镜像；或联系管理员提供公共可安装版本。')
 
 	# ——— 模式选择 ———
-	mode = st.radio('选择模式：', ['📄 单文件上传', '📁 从文件名生成', '📝 手动批量输入'], horizontal=True)
+	st.markdown('<h3 style="text-align: center; margin: 2rem 0;">🚀 选择处理模式</h3>', unsafe_allow_html=True)
+	
+	# 使用列布局创建模式选择卡片
+	col1, col2, col3 = st.columns(3)
+	
+	with col1:
+		st.markdown("""
+		<div style="text-align: center; padding: 1rem; border-radius: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; margin: 0.5rem;">
+			<h4>📄 单文件上传</h4>
+			<p>上传Excel/CSV/TXT文件</p>
+		</div>
+		""", unsafe_allow_html=True)
+	
+	with col2:
+		st.markdown("""
+		<div style="text-align: center; padding: 1rem; border-radius: 10px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; margin: 0.5rem;">
+			<h4>📁 从文件名生成</h4>
+			<p>基于文件名自动生成查询</p>
+		</div>
+		""", unsafe_allow_html=True)
+	
+	with col3:
+		st.markdown("""
+		<div style="text-align: center; padding: 1rem; border-radius: 10px; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; margin: 0.5rem;">
+			<h4>📝 手动批量输入</h4>
+			<p>手动输入或粘贴查询</p>
+		</div>
+		""", unsafe_allow_html=True)
+	
+	mode = st.radio('选择模式：', ['📄 单文件上传', '📁 从文件名生成', '📝 手动批量输入'], horizontal=True, label_visibility="collapsed")
 
 	queries: List[str] = []
 
@@ -195,7 +313,7 @@ def main():
 	# 提取流程与评分流程（合并按钮顺序执行）
 	if run:
 		with ex_progress_placeholder:
-			progress_ex = st.progress(0, text='提取开始...')
+			progress_ex = st.progress(0, text='🚀 提取开始...')
 		# 初始化/清空提取日志
 		st.session_state['extract_logs'] = []
 
@@ -245,7 +363,7 @@ def main():
 	# 评分流程
 	if run:
 		with sc_progress_placeholder:
-			progress_sc = st.progress(0, text='评分开始...')
+			progress_sc = st.progress(0, text='🎯 评分开始...')
 		# 初始化/清空评分日志
 		st.session_state['score_logs'] = []
 
@@ -309,40 +427,132 @@ def main():
 		results = st.session_state.extracted_results
 		failed = st.session_state.extracted_failed or []
 		if not results:
-			st.error('没有成功提取到任何简历数据')
+			st.markdown('<div class="warning-box">⚠️ 没有成功提取到任何简历数据</div>', unsafe_allow_html=True)
 		else:
 			extractor_tmp = ResumeExtractor(api_key, base_url, user_id)
 			extractor_tmp.extracted_data = results
 			meta = extractor_tmp.get_extraction_summary()
-			st.success('提取完成！')
+			
+			# 使用自定义样式的成功提示
+			st.markdown('<div class="success-box">🎉 提取完成！</div>', unsafe_allow_html=True)
+			
+			# 美化指标显示
+			st.markdown('<h3 style="text-align: center; margin: 2rem 0;">📊 提取统计</h3>', unsafe_allow_html=True)
+			
 			col1, col2, col3, col4 = st.columns(4)
-			col1.metric('总提取数量', meta.get('total_count', 0))
-			col2.metric('成功提取', meta.get('successful_extractions', 0))
-			col3.metric('不同姓名数', len(meta.get('unique_names', [])))
-			col4.metric('学历类型数', len(meta.get('education_levels', [])))
-			with st.expander('查看提取明细（前100行）', expanded=False):
-				st.dataframe(pd.DataFrame(results).head(100), use_container_width=True)
+			with col1:
+				st.markdown(f"""
+				<div class="metric-card">
+					<h2>{meta.get('total_count', 0)}</h2>
+					<p>总提取数量</p>
+				</div>
+				""", unsafe_allow_html=True)
+			with col2:
+				st.markdown(f"""
+				<div class="metric-card">
+					<h2>{meta.get('successful_extractions', 0)}</h2>
+					<p>成功提取</p>
+				</div>
+				""", unsafe_allow_html=True)
+			with col3:
+				st.markdown(f"""
+				<div class="metric-card">
+					<h2>{len(meta.get('unique_names', []))}</h2>
+					<p>不同姓名数</p>
+				</div>
+				""", unsafe_allow_html=True)
+			with col4:
+				st.markdown(f"""
+				<div class="metric-card">
+					<h2>{len(meta.get('education_levels', []))}</h2>
+					<p>学历类型数</p>
+				</div>
+				""", unsafe_allow_html=True)
+			
+			# 添加数据可视化
+			if meta.get('education_levels'):
+				st.markdown('<h4 style="margin: 2rem 0 1rem 0;">🎓 学历分布</h4>', unsafe_allow_html=True)
+				edu_counts = pd.Series(meta['education_levels']).value_counts()
+				col1, col2 = st.columns([2, 1])
+				with col1:
+					st.bar_chart(edu_counts)
+				with col2:
+					st.write(edu_counts)
+			
+			# 美化数据表格显示
+			with st.expander('📋 查看提取明细（前100行）', expanded=False):
+				df_display = pd.DataFrame(results).head(100)
+				st.dataframe(df_display, use_container_width=True, height=400)
 			# 下载提取结果
-			st.subheader('📥 下载提取结果')
+			st.markdown('<h3 style="text-align: center; margin: 2rem 0;">📥 下载提取结果</h3>', unsafe_allow_html=True)
 			ts = datetime.now().strftime('%Y%m%d_%H%M%S')
-			excel_bytes = to_excel_bytes(results, sheet_name='简历信息')
-			st.download_button('📊 下载简历Excel', data=excel_bytes, file_name=f"resume_data_{ts}.xlsx", mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+			
+			col1, col2 = st.columns(2)
+			with col1:
+				excel_bytes = to_excel_bytes(results, sheet_name='简历信息')
+				st.download_button('📊 下载简历Excel', data=excel_bytes, file_name=f"resume_data_{ts}.xlsx", mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+			
 			if failed:
-				failed_bytes = to_failed_queries_excel_bytes(failed)
-				st.download_button('⚠️ 下载失败查询（Excel）', data=failed_bytes, file_name=f"failed_queries_{ts}.xlsx", mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+				with col2:
+					failed_bytes = to_failed_queries_excel_bytes(failed)
+					st.download_button('⚠️ 下载失败查询（Excel）', data=failed_bytes, file_name=f"failed_queries_{ts}.xlsx", mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 	# 展示评分结果
 	if st.session_state.score_results is not None:
 		score_data = st.session_state.score_results
 		score_error = st.session_state.score_error
 		if score_error:
-			st.info(f'评分提示：{score_error}')
+			st.markdown(f'<div class="warning-box">⚠️ 评分提示：{score_error}</div>', unsafe_allow_html=True)
 		if score_data:
 			# 按总得分从高到低排序
 			df_scores = pd.DataFrame(score_data)
 			if '总得分' in df_scores.columns:
 				df_scores_sorted = df_scores.sort_values('总得分', ascending=False)
-				st.success(f'评分完成！共 {len(score_data)} 条评分数据')
+				
+				# 使用自定义样式的成功提示
+				st.markdown('<div class="success-box">🎯 评分完成！</div>', unsafe_allow_html=True)
+				
+				# 美化评分统计显示
+				st.markdown('<h3 style="text-align: center; margin: 2rem 0;">📊 评分统计</h3>', unsafe_allow_html=True)
+				
+				# 显示评分统计信息
+				col1, col2, col3, col4 = st.columns(4)
+				with col1:
+					st.markdown(f"""
+					<div class="metric-card">
+						<h2>{df_scores_sorted['总得分'].max()}</h2>
+						<p>最高分</p>
+					</div>
+					""", unsafe_allow_html=True)
+				with col2:
+					st.markdown(f"""
+					<div class="metric-card">
+						<h2>{df_scores_sorted['总得分'].min()}</h2>
+						<p>最低分</p>
+					</div>
+					""", unsafe_allow_html=True)
+				with col3:
+					st.markdown(f"""
+					<div class="metric-card">
+						<h2>{df_scores_sorted['总得分'].mean():.1f}</h2>
+						<p>平均分</p>
+					</div>
+					""", unsafe_allow_html=True)
+				with col4:
+					st.markdown(f"""
+					<div class="metric-card">
+						<h2>{df_scores_sorted['总得分'].median():.1f}</h2>
+						<p>中位数</p>
+					</div>
+					""", unsafe_allow_html=True)
+				
+				# 添加评分分布可视化
+				st.markdown('<h4 style="margin: 2rem 0 1rem 0;">📈 评分分布</h4>', unsafe_allow_html=True)
+				col1, col2 = st.columns([2, 1])
+				with col1:
+					st.bar_chart(df_scores_sorted['总得分'])
+				with col2:
+					st.write(f"共 {len(score_data)} 条评分数据")
 				
 				# 提取文件名并重新排列列顺序
 				if '评分查询' in df_scores_sorted.columns:
@@ -387,22 +597,15 @@ def main():
 				
 				df_scores_sorted = df_scores_sorted[ordered_columns]
 				
-				# 显示排序后的评分明细
-				with st.expander('查看评分明细（按总得分从高到低排序，前100行）', expanded=False):
-					st.dataframe(df_scores_sorted.head(100), use_container_width=True)
-				
-				# 显示评分统计信息
-				col1, col2, col3, col4 = st.columns(4)
-				col1.metric('最高分', df_scores_sorted['总得分'].max())
-				col2.metric('最低分', df_scores_sorted['总得分'].min())
-				col3.metric('平均分', f"{df_scores_sorted['总得分'].mean():.1f}")
-				col4.metric('中位数', f"{df_scores_sorted['总得分'].median():.1f}")
+				# 美化评分明细显示
+				with st.expander('📋 查看评分明细（按总得分从高到低排序，前100行）', expanded=False):
+					st.dataframe(df_scores_sorted.head(100), use_container_width=True, height=400)
 			else:
 				# 如果没有总得分字段，按原样显示
-				with st.expander('查看评分明细（前100行）', expanded=False):
-					st.dataframe(pd.DataFrame(score_data).head(100), use_container_width=True)
+				with st.expander('📋 查看评分明细（前100行）', expanded=False):
+					st.dataframe(pd.DataFrame(score_data).head(100), use_container_width=True, height=400)
 			# 下载评分结果
-			st.subheader('📥 下载评分结果')
+			st.markdown('<h3 style="text-align: center; margin: 2rem 0;">📥 下载评分结果</h3>', unsafe_allow_html=True)
 			ts = datetime.now().strftime('%Y%m%d_%H%M%S')
 			# 若有提取结果，则提供合并Excel与ZIP
 			if st.session_state.extracted_results:
@@ -418,7 +621,10 @@ def main():
 				with pd.ExcelWriter(combined_output, engine='openpyxl') as writer:
 					merged_df.to_excel(writer, index=False, sheet_name='简历信息与评分')
 				combined_output.seek(0)
-				st.download_button('📒 下载合并Excel（信息+评分）', data=combined_output.read(), file_name=f"resume_with_scores_{ts}.xlsx", mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+				
+				col1, col2 = st.columns(2)
+				with col1:
+					st.download_button('📒 下载合并Excel（信息+评分）', data=combined_output.read(), file_name=f"resume_with_scores_{ts}.xlsx", mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 				# 生成评分JSON数据用于ZIP包
 				scores_json_bytes = json.dumps(score_data, ensure_ascii=False, indent=2).encode('utf-8')
 				files_for_zip: List[Tuple[str, bytes]] = [
@@ -430,8 +636,18 @@ def main():
 				if st.session_state.extracted_failed:
 					files_for_zip.append((f'failed_queries_{ts}.xlsx', to_failed_queries_excel_bytes(st.session_state.extracted_failed)))
 				zip_bytes = build_zip_bytes(files_for_zip)
-				st.download_button('🗜️ 下载全部（ZIP）', data=zip_bytes, file_name=f"resume_extraction_{ts}.zip", mime='application/zip')
+				with col2:
+					st.download_button('🗜️ 下载全部（ZIP）', data=zip_bytes, file_name=f"resume_extraction_{ts}.zip", mime='application/zip')
 
+
+	# 页面底部美化
+	st.markdown("---")
+	st.markdown("""
+	<div style="text-align: center; padding: 2rem; color: #666;">
+		<p>🚀 CMSR 简历信息提取系统 | 让简历处理更智能、更高效</p>
+		<p style="font-size: 0.9rem;">Powered by Streamlit & AI Agent Platform</p>
+	</div>
+	""", unsafe_allow_html=True)
 
 if __name__ == '__main__':
 	main()
