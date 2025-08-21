@@ -79,21 +79,20 @@ def main():
 	st.set_page_config(page_title='CMSR - 简历信息提取系统', layout='wide')
 	st.title('📋 CMSR - 简历信息提取系统')
 
-	# ——— 侧边栏：API 配置（支持 Secrets 默认 + 手动覆盖） ———
-	with st.sidebar:
-		st.subheader('⚙️ 运行配置（代码内写死）')
-		api_key, base_url, user_id = get_api_config_from_secrets()
-		score_api_key_input = get_score_key_from_secrets()
-		st.caption('本应用不使用 Secrets。')
+	# ——— 主界面配置信息 ———
+	st.subheader('⚙️ 运行配置（代码内写死）')
+	api_key, base_url, user_id = get_api_config_from_secrets()
+	score_api_key_input = get_score_key_from_secrets()
+	st.caption('本应用不使用 Secrets。')
 
-		if not _HAS_AIA:
-			st.warning('未检测到 aiagentplatformpy。若为私有库，云端无法直接安装，请使用带该库的自定义环境或私有包镜像；或联系管理员提供公共可安装版本。')
+	if not _HAS_AIA:
+		st.warning('未检测到 aiagentplatformpy。若为私有库，云端无法直接安装，请使用带该库的自定义环境或私有包镜像；或联系管理员提供公共可安装版本。')
 
-		st.markdown('---')
-		st.subheader('📌 使用提示')
-		st.markdown('- 支持 Excel/CSV/TXT 三种输入方式')
-		st.markdown('- 也可从文件名快速生成查询或手动粘贴查询')
-		st.markdown('- 处理完成后可下载合并Excel、JSON、评分JSON、失败查询与ZIP')
+	st.markdown('---')
+	st.subheader('📌 使用提示')
+	st.markdown('- 支持 Excel/CSV/TXT 三种输入方式')
+	st.markdown('- 也可从文件名快速生成查询或手动粘贴查询')
+	st.markdown('- 处理完成后可下载合并Excel、JSON、评分JSON、失败查询与ZIP')
 
 	# ——— 模式选择 ———
 	mode = st.radio('选择模式：', ['📄 单文件上传', '📁 从文件名生成', '📝 手动批量输入'], horizontal=True)
