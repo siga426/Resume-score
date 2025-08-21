@@ -147,6 +147,11 @@ def main():
 
 				# —— 简历信息提取（带进度）——
 				extractor = ResumeExtractor(api_key, base_url, user_id)
+				# 创建或加载对话ID
+				try:
+					extractor.chat_api.create_or_load_conversation(use_existing=True)
+				except Exception:
+					pass
 				progress = st.progress(0)
 				status_text = st.empty()
 				total = len(st.session_state.queries)
@@ -164,6 +169,11 @@ def main():
 				# —— 简历评分（带进度）——
 				score_api_key = 'd2jdmq16ht5pktrs7a10'
 				scorer = ResumeScorer(score_api_key, base_url, user_id)
+				# 创建或加载评分对话ID
+				try:
+					scorer.chat_api.create_or_load_conversation(use_existing=True)
+				except Exception:
+					pass
 				def to_score_query(q: str) -> str:
 					base = str(q).strip()
 					for suf in ['的简历信息', '的简历情况', '的简历']:
