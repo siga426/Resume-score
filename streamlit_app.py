@@ -4,6 +4,7 @@ import json
 import zipfile
 import tempfile
 import contextlib
+import time
 from datetime import datetime
 from typing import List, Tuple
 
@@ -204,12 +205,16 @@ def main():
 				if not s:
 					return
 				st.session_state['extract_logs'].append(s)
-				ex_log_placeholder.text_area(
-					label='提取日志',
-					value=''.join(st.session_state['extract_logs']),
-					height=200,
-					disabled=True
-				)
+				# 流式输出效果：逐字符显示
+				full_text = ''.join(st.session_state['extract_logs'])
+				for i in range(1, len(full_text) + 1):
+					ex_log_placeholder.text_area(
+						label='提取日志',
+						value=full_text[:i],
+						height=200,
+						disabled=True
+					)
+					time.sleep(0.01)  # 控制打字速度
 
 		extractor = ResumeExtractor(api_key, base_url, user_id)
 		# 复用提取会话ID
@@ -252,12 +257,16 @@ def main():
 				if not s:
 					return
 				st.session_state['score_logs'].append(s)
-				sc_placeholder.text_area(
-					label='评分日志',
-					value=''.join(st.session_state['score_logs']),
-					height=200,
-					disabled=True
-				)
+				# 流式输出效果：逐字符显示
+				full_text = ''.join(st.session_state['score_logs'])
+				for i in range(1, len(full_text) + 1):
+					sc_placeholder.text_area(
+						label='评分日志',
+						value=full_text[:i],
+						height=200,
+						disabled=True
+					)
+					time.sleep(0.01)  # 控制打字速度
 
 		# 仅使用评分Key，不使用兜底
 		use_key = score_api_key_input
