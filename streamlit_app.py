@@ -212,7 +212,8 @@ def main():
 						label='提取日志',
 						value=full_text[:i],
 						height=200,
-						disabled=True
+						disabled=True,
+						key=f"extract_log_{len(st.session_state['extract_logs'])}_{i}"  # 唯一key
 					)
 					time.sleep(0.01)  # 控制打字速度
 
@@ -264,7 +265,8 @@ def main():
 						label='评分日志',
 						value=full_text[:i],
 						height=200,
-						disabled=True
+						disabled=True,
+						key=f"score_log_{len(st.session_state['score_logs'])}_{i}"  # 唯一key
 					)
 					time.sleep(0.01)  # 控制打字速度
 
