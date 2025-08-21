@@ -84,13 +84,25 @@ def main():
 	st.title('📋 CMSR - 简历信息提取系统')
 	st.caption('在云端运行，无需本地部署。支持单文件查询与批量文件名生成查询。')
 
+	# —— 初始化会话状态 ——
+	if 'queries' not in st.session_state:
+		st.session_state.queries = []
+	if 'data' not in st.session_state:
+		st.session_state.data = []
+	if 'score_data' not in st.session_state:
+		st.session_state.score_data = []
+	if 'failed' not in st.session_state:
+		st.session_state.failed = []
+	if 'ran' not in st.session_state:
+		st.session_state.ran = False
+
 	# 从 Streamlit Secrets 读取 API 配置（不显示在界面上）
 	api_key, base_url, user_id = get_api_config()
 
 	# ——— 模式选择 ———
 	mode = st.radio('选择上传模式：', ['📄 单文件模式', '📁 批量文件模式'], horizontal=True)
 
-	queries: List[str] = []
+	queries: List[str] = st.session_state.queries
 
 	if mode == '📄 单文件模式':
 		st.subheader('📁 上传查询文件（Excel/CSV/TXT）')
@@ -103,6 +115,7 @@ def main():
 			
 			loader = QueryLoader()
 			queries = loader.load_queries(tmp_path)
+			st.session_state.queries = queries
 			st.success(f'已读取 {len(queries)} 条查询')
 			if queries:
 				with st.expander('查看查询预览', expanded=False):
@@ -114,18 +127,19 @@ def main():
 		if batch_files:
 			file_names = [bf.name for bf in batch_files]
 			queries = [f"{strip_ext(name)}的简历情况" for name in file_names]
+			st.session_state.queries = queries
 			st.success(f'已从 {len(file_names)} 个文件名生成 {len(queries)} 条查询')
 			with st.expander('查看生成的查询', expanded=True):
 				st.write(pd.DataFrame({'文件名': file_names, '生成的查询': queries}))
 
 	# ——— 开始提取 ———
 	st.divider()
-	can_run = bool(queries)
+	can_run = bool(st.session_state.queries)
 	run = st.button('🚀 开始提取', disabled=not can_run)
 	if run:
 		with st.spinner('正在提取简历信息，请稍候...'):
 			extractor = ResumeExtractor(api_key, base_url, user_id)
-			data = extractor.batch_extract_resumes(queries)
+			data = extractor.batch_extract_resumes(st.session_state.queries)
 			# 评分
 			score_api_key = 'd2jdmq16ht5pktrs7a10'
 			scorer = ResumeScorer(score_api_key, base_url, user_id)
@@ -136,13 +150,27 @@ def main():
 						base = base[:-len(suf)]
 						break
 				return base + '的简历评分'
-			score_queries = [to_score_query(q) for q in queries]
-			score_data = scorer.batch_score(score_queries)
+			score_queries = [to_score_query(q) for q in st.session_state.queries]
+			try:
+				score_data = scorer.batch_score(score_queries)
+			except Exception as e:
+				st.warning(f'评分调用失败：{e}，将不显示评分数据。')
+				score_data = []
+			# 保存结果到会话状态
+			st.session_state.data = data
+			st.session_state.score_data = score_data
+			st.session_state.failed = getattr(extractor, 'failed_queries', [])
+			st.session_state.ran = True
 
-		if not data:
+		if not st.session_state.data:
 			st.error('没有成功提取到任何简历数据')
 			return
 
+	# —— 显示历史结果（即使页面因交互重跑也保留）——
+	if st.session_state.ran and st.session_state.data:
+		# 重新构造 extractor 以便使用现有摘要方法
+		extractor = ResumeExtractor(api_key, base_url, user_id)
+		extractor.extracted_data = st.session_state.data
 		# 摘要信息
 		summary = extractor.get_extraction_summary()
 		st.success('提取完成！下面是摘要信息：')
@@ -154,29 +182,29 @@ def main():
 
 		# 数据预览
 		with st.expander('查看提取明细（前100行）', expanded=False):
-			st.dataframe(pd.DataFrame(data).head(100), use_container_width=True)
+			st.dataframe(pd.DataFrame(st.session_state.data).head(100), use_container_width=True)
 		with st.expander('查看评分明细（前100行）', expanded=False):
-			st.dataframe(pd.DataFrame(score_data).head(100), use_container_width=True)
+			st.dataframe(pd.DataFrame(st.session_state.score_data).head(100), use_container_width=True)
 
 		# 下载区
 		st.subheader('📥 下载结果文件')
 		# 合并两个Sheet导出
 		combined_output = io.BytesIO()
 		with pd.ExcelWriter(combined_output, engine='openpyxl') as writer:
-			pd.DataFrame(data).to_excel(writer, index=False, sheet_name='简历信息')
-			pd.DataFrame(score_data).to_excel(writer, index=False, sheet_name='简历评分')
+			pd.DataFrame(st.session_state.data).to_excel(writer, index=False, sheet_name='简历信息')
+			pd.DataFrame(st.session_state.score_data).to_excel(writer, index=False, sheet_name='简历评分')
 		combined_output.seek(0)
 		st.download_button('📒 下载合并Excel（含评分）', data=combined_output.read(), file_name=f"resume_with_scores_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx", mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 		# 分别导出
-		excel_bytes = to_excel_bytes(data, sheet_name='简历信息')
-		json_str = json.dumps(data, ensure_ascii=False, indent=2)
-		scores_json_str = json.dumps(score_data, ensure_ascii=False, indent=2)
+		excel_bytes = to_excel_bytes(st.session_state.data, sheet_name='简历信息')
+		json_str = json.dumps(st.session_state.data, ensure_ascii=False, indent=2)
+		scores_json_str = json.dumps(st.session_state.score_data, ensure_ascii=False, indent=2)
 		st.download_button('📊 下载简历Excel', data=excel_bytes, file_name=f"resume_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx", mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 		st.download_button('📄 下载简历JSON', data=json_str.encode('utf-8'), file_name=f"resume_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json", mime='application/json')
 		st.download_button('🏷️ 下载评分JSON', data=scores_json_str.encode('utf-8'), file_name=f"resume_scores_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json", mime='application/json')
 
 		# 失败查询
-		failed = getattr(extractor, 'failed_queries', [])
+		failed = st.session_state.failed
 		if failed:
 			st.warning(f'有 {len(failed)} 条查询失败，可下载明细。')
 			failed_bytes = to_failed_queries_excel_bytes(failed)
