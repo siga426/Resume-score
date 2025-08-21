@@ -93,7 +93,7 @@ class ResumeScorer:
         try:
             print(f"发送评分查询: {query}")
             response = self.chat_api.send_message(query)
-            print(f"收到响应: {response}")
+            # print(f"收到响应: {response}")
             
             if 'answer' not in response:
                 print(f"响应中缺少answer字段: {response}")
