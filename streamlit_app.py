@@ -172,13 +172,33 @@ def main():
 	ex_progress_placeholder = st.empty()
 	
 	ex_log_expander = st.expander('📜 提取日志', expanded=True)
-	ex_log_placeholder = ex_log_expander.empty()
+	with ex_log_expander:
+		# 显示已有的提取日志
+		if st.session_state.extract_logs:
+			st.text_area(
+				label='提取日志内容',
+				value=''.join(st.session_state.extract_logs),
+				height=200,
+				disabled=True,
+				key='extract_log_display'
+			)
+		ex_log_placeholder = st.empty()
 
 	# 评分进度条
 	sc_progress_placeholder = st.empty()
 	
 	sc_expander = st.expander('📜 评分日志', expanded=True)
-	sc_placeholder = sc_expander.empty()
+	with sc_expander:
+		# 显示已有的评分日志
+		if st.session_state.score_logs:
+			st.text_area(
+				label='评分日志内容',
+				value=''.join(st.session_state.score_logs),
+				height=200,
+				disabled=True,
+				key='score_log_display'
+			)
+		sc_placeholder = st.empty()
 
 	# 提取流程与评分流程（合并按钮顺序执行）
 	if run:
@@ -192,13 +212,13 @@ def main():
 				if not s:
 					return
 				st.session_state['extract_logs'].append(s)
-				# 使用 text_area 保持滚动功能，使用动态key
+				# 更新固定的日志显示区域
 				ex_log_placeholder.text_area(
-					label='提取日志',
+					label='实时提取日志',
 					value=''.join(st.session_state['extract_logs']),
 					height=200,
 					disabled=True,
-					key=f'extract_log_{len(st.session_state["extract_logs"])}'  # 动态key
+					key=f'extract_log_realtime_{len(st.session_state["extract_logs"])}'  # 动态key
 				)
 
 		extractor = ResumeExtractor(api_key, base_url, user_id)
@@ -242,13 +262,13 @@ def main():
 				if not s:
 					return
 				st.session_state['score_logs'].append(s)
-				# 使用 text_area 保持滚动功能，使用动态key
+				# 更新固定的日志显示区域
 				sc_placeholder.text_area(
-					label='评分日志',
+					label='实时评分日志',
 					value=''.join(st.session_state['score_logs']),
 					height=200,
 					disabled=True,
-					key=f'score_log_{len(st.session_state["score_logs"])}'  # 动态key
+					key=f'score_log_realtime_{len(st.session_state["score_logs"])}'  # 动态key
 				)
 
 		# 仅使用评分Key，不使用兜底
