@@ -172,25 +172,13 @@ def main():
 	ex_progress_placeholder = st.empty()
 	
 	ex_log_expander = st.expander('📜 提取日志', expanded=True)
-	ex_log_placeholder = ex_log_expander.empty()
-	ex_log_placeholder.text_area(
-		label='提取日志',
-		value=''.join(st.session_state['extract_logs']),
-		height=200,
-		disabled=True
-	)
+	ex_log_placeholder = ex_log_expander.container()
 
 	# 评分进度条
 	sc_progress_placeholder = st.empty()
 	
 	sc_expander = st.expander('📜 评分日志', expanded=True)
-	sc_placeholder = sc_expander.empty()
-	sc_placeholder.text_area(
-		label='评分日志',
-		value=''.join(st.session_state['score_logs']),
-		height=200,
-		disabled=True
-	)
+	sc_placeholder = sc_expander.container()
 
 	# 提取流程与评分流程（合并按钮顺序执行）
 	if run:
@@ -204,12 +192,13 @@ def main():
 				if not s:
 					return
 				st.session_state['extract_logs'].append(s)
-				ex_log_placeholder.text_area(
-					label='提取日志',
-					value=''.join(st.session_state['extract_logs']),
-					height=200,
-					disabled=True
-				)
+				with ex_log_placeholder:
+					st.text_area(
+						label='提取日志',
+						value=''.join(st.session_state['extract_logs']),
+						height=200,
+						disabled=True
+					)
 
 		extractor = ResumeExtractor(api_key, base_url, user_id)
 		# 复用提取会话ID
@@ -252,12 +241,13 @@ def main():
 				if not s:
 					return
 				st.session_state['score_logs'].append(s)
-				sc_placeholder.text_area(
-					label='评分日志',
-					value=''.join(st.session_state['score_logs']),
-					height=200,
-					disabled=True
-				)
+				with sc_placeholder:
+					st.text_area(
+						label='评分日志',
+						value=''.join(st.session_state['score_logs']),
+						height=200,
+						disabled=True
+					)
 
 		# 仅使用评分Key，不使用兜底
 		use_key = score_api_key_input
