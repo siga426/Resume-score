@@ -162,21 +162,43 @@ def main():
 		st.session_state.score_results = None
 	if 'score_error' not in st.session_state:
 		st.session_state.score_error = None
+	# 初始化日志存储并常驻显示日志区域（运行结束后仍可见）
+	if 'extract_logs' not in st.session_state:
+		st.session_state.extract_logs = []
+	if 'score_logs' not in st.session_state:
+		st.session_state.score_logs = []
+
+	# 常驻日志区域（默认展开，显示当前 session_state 日志）
+	ex_log_expander = st.expander('📜 提取日志', expanded=True)
+	ex_log_placeholder = ex_log_expander.empty()
+	ex_log_placeholder.text_area(
+		label='提取日志',
+		value=''.join(st.session_state['extract_logs']),
+		height=200,
+		disabled=True
+	)
+
+	sc_expander = st.expander('📜 评分日志', expanded=True)
+	sc_placeholder = sc_expander.empty()
+	sc_placeholder.text_area(
+		label='评分日志',
+		value=''.join(st.session_state['score_logs']),
+		height=200,
+		disabled=True
+	)
 
 	# 提取流程与评分流程（合并按钮顺序执行）
 	if run:
 		progress_ex = st.progress(0, text='提取开始...')
 		# 初始化/清空提取日志
 		st.session_state['extract_logs'] = []
-		log_expander = st.expander('📜 提取日志', expanded=True)
-		log_placeholder = log_expander.empty()
 
 		class StreamlitAppendWriter(io.StringIO):
 			def write(self, s: str):
 				if not s:
 					return
 				st.session_state['extract_logs'].append(s)
-				log_placeholder.text_area(
+				ex_log_placeholder.text_area(
 					label='提取日志',
 					value=''.join(st.session_state['extract_logs']),
 					height=200,
@@ -213,8 +235,6 @@ def main():
 		progress_sc = st.progress(0, text='评分开始...')
 		# 初始化/清空评分日志
 		st.session_state['score_logs'] = []
-		sc_expander = st.expander('📜 评分日志', expanded=True)
-		sc_placeholder = sc_expander.empty()
 
 		class StreamlitScoreWriter(io.StringIO):
 			def write(self, s: str):
