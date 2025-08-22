@@ -287,13 +287,6 @@ def main():
 	st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
 	
 	# 操作区域
-	st.markdown("""
-	<div style="background: linear-gradient(135deg, #e6fffa 0%, #b2f5ea 100%); 
-				padding: 1.5rem; border-radius: 15px; border: 1px solid #81e6d9; margin: 1rem 0;">
-		<h3 style="color: #065666; margin: 0 0 1rem 0; text-align: center;">🚀 执行操作</h3>
-	</div>
-	""", unsafe_allow_html=True)
-	
 	can_run = bool(queries)
 	if can_run:
 		st.success(f'✅ 已准备 {len(queries)} 条查询，可以开始处理')
