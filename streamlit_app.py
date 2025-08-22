@@ -77,7 +77,97 @@ def build_zip_bytes(files: List[Tuple[str, bytes]]) -> bytes:
 
 def main():
 	st.set_page_config(page_title='CMSR - 简历智能分析系统', layout='wide')
-	st.title('📊 CMSR - 简历智能分析系统')
+	
+	# 自定义CSS样式
+	st.markdown("""
+	<style>
+	/* 主标题样式 */
+	.main-header {
+		background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+		padding: 2rem 1rem;
+		border-radius: 15px;
+		margin-bottom: 2rem;
+		text-align: center;
+		color: white;
+		box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+	}
+	
+	/* 按钮样式美化 */
+	.stButton > button {
+		border-radius: 12px !important;
+		border: none !important;
+		box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+		transition: all 0.3s ease !important;
+		font-weight: 600 !important;
+		padding: 0.75rem 1.5rem !important;
+	}
+	
+	.stButton > button:hover {
+		transform: translateY(-2px) !important;
+		box-shadow: 0 6px 20px rgba(0,0,0,0.2) !important;
+	}
+	
+	/* 模式选择按钮特殊样式 */
+	.mode-button {
+		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+		color: white !important;
+	}
+	
+	.mode-button:hover {
+		background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%) !important;
+	}
+	
+	/* 卡片和容器样式 */
+	.stExpander {
+		border-radius: 15px !important;
+		border: 2px solid #f0f2f6 !important;
+		box-shadow: 0 2px 10px rgba(0,0,0,0.08) !important;
+		margin: 1rem 0 !important;
+	}
+	
+	/* 进度条样式 */
+	.stProgress > div > div > div {
+		background: linear-gradient(90deg, #667eea 0%, #764ba2 100%) !important;
+		border-radius: 10px !important;
+	}
+	
+	/* 文件上传区域样式 */
+	.uploadedFile {
+		border-radius: 10px !important;
+		border: 2px dashed #667eea !important;
+		background: #f8f9ff !important;
+		padding: 1rem !important;
+	}
+	
+	/* 数据表格样式 */
+	.dataframe {
+		border-radius: 10px !important;
+		overflow: hidden !important;
+		box-shadow: 0 2px 10px rgba(0,0,0,0.1) !important;
+	}
+	
+	/* 指标卡片样式 */
+	.metric-card {
+		background: linear-gradient(135deg, #f8f9ff 0%, #e8ecff 100%);
+		padding: 1.5rem;
+		border-radius: 15px;
+		border: 1px solid #e0e6ff;
+		text-align: center;
+		box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+	}
+	
+	/* 分隔线样式 */
+	.custom-divider {
+		height: 3px;
+		background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+		border-radius: 2px;
+		margin: 2rem 0;
+	}
+	</style>
+	""", unsafe_allow_html=True)
+	
+	# 美化后的主标题
+	st.markdown('<div class="main-header"><h1>📊 CMSR - 简历智能分析系统</h1></div>', unsafe_allow_html=True)
 
 	# 获取API配置（静默获取，不显示在界面上）
 	api_key, base_url, user_id = get_api_config_from_secrets()
@@ -97,15 +187,18 @@ def main():
 	col1, col2, col3 = st.columns(3)
 	
 	with col1:
-		if st.button('📄 单文件上传', use_container_width=True, type='primary' if st.session_state.selected_mode == '📄 单文件上传' else 'secondary'):
+		button_style = "mode-button" if st.session_state.selected_mode == '📄 单文件上传' else ""
+		if st.button('📄 单文件上传', use_container_width=True, key='btn_single_upload'):
 			st.session_state.selected_mode = '📄 单文件上传'
 	
 	with col2:
-		if st.button('📁 从文件名生成', use_container_width=True, type='primary' if st.session_state.selected_mode == '📁 从文件名生成' else 'secondary'):
+		button_style = "mode-button" if st.session_state.selected_mode == '📁 从文件名生成' else ""
+		if st.button('📁 从文件名生成', use_container_width=True, key='btn_filename_gen'):
 			st.session_state.selected_mode = '📁 从文件名生成'
 	
 	with col3:
-		if st.button('📝 手动批量输入', use_container_width=True, type='primary' if st.session_state.selected_mode == '📝 手动批量输入' else 'secondary'):
+		button_style = "mode-button" if st.session_state.selected_mode == '📝 手动批量输入' else ""
+		if st.button('📝 手动批量输入', use_container_width=True, key='btn_manual_input'):
 			st.session_state.selected_mode = '📝 手动批量输入'
 	
 	mode = st.session_state.selected_mode
@@ -161,9 +254,21 @@ def main():
 				txt_buf = io.StringIO('\n'.join(queries))
 				st.download_button('📝 下载查询TXT', data=txt_buf.getvalue().encode('utf-8'), file_name=f"batch_queries_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt", mime='text/plain')
 
-	st.divider()
+	# 自定义分隔线
+	st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
+	
+	# 操作区域
 	can_run = bool(queries)
-	run = st.button('🚀 开始提取与评分', disabled=not can_run)
+	if can_run:
+		st.success(f'✅ 已准备 {len(queries)} 条查询，可以开始处理')
+	
+	col_run, col_info = st.columns([1, 2])
+	with col_run:
+		run = st.button('🚀 开始提取与评分', disabled=not can_run, use_container_width=True)
+	
+	with col_info:
+		if can_run:
+			st.info(f'📊 将处理 {len(queries)} 条查询，预计需要 {len(queries) * 2} 次API调用')
 
 	# 使用 session_state 保存阶段性结果
 	if 'extracted_results' not in st.session_state:
@@ -335,12 +440,46 @@ def main():
 			extractor_tmp = ResumeExtractor(api_key, base_url, user_id)
 			extractor_tmp.extracted_data = results
 			meta = extractor_tmp.get_extraction_summary()
-			st.success('提取完成！')
+			
+			# 美化成功提示
+			st.markdown("""
+			<div style="background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%); 
+						padding: 1rem; border-radius: 10px; border-left: 5px solid #28a745;">
+				<h3 style="color: #155724; margin: 0;">🎉 提取完成！</h3>
+			</div>
+			""", unsafe_allow_html=True)
+			
+			# 美化统计指标
+			st.subheader('📊 提取统计')
 			col1, col2, col3, col4 = st.columns(4)
-			col1.metric('总提取数量', meta.get('total_count', 0))
-			col2.metric('成功提取', meta.get('successful_extractions', 0))
-			col3.metric('不同姓名数', len(meta.get('unique_names', [])))
-			col4.metric('学历类型数', len(meta.get('education_levels', [])))
+			with col1:
+				st.markdown(f"""
+				<div class="metric-card">
+					<h4 style="color: #667eea; margin: 0 0 0.5rem 0;">总提取数量</h4>
+					<h2 style="color: #333; margin: 0;">{meta.get('total_count', 0)}</h2>
+				</div>
+				""", unsafe_allow_html=True)
+			with col2:
+				st.markdown(f"""
+				<div class="metric-card">
+					<h4 style="color: #667eea; margin: 0 0 0.5rem 0;">成功提取</h4>
+					<h2 style="color: #333; margin: 0;">{meta.get('successful_extractions', 0)}</h2>
+				</div>
+				""", unsafe_allow_html=True)
+			with col3:
+				st.markdown(f"""
+				<div class="metric-card">
+					<h4 style="color: #667eea; margin: 0 0 0.5rem 0;">不同姓名数</h4>
+					<h2 style="color: #333; margin: 0;">{len(meta.get('unique_names', []))}</h2>
+				</div>
+				""", unsafe_allow_html=True)
+			with col4:
+				st.markdown(f"""
+				<div class="metric-card">
+					<h4 style="color: #667eea; margin: 0 0 0.5rem 0;">学历类型数</h4>
+					<h2 style="color: #333; margin: 0;">{len(meta.get('education_levels', []))}</h2>
+				</div>
+				""", unsafe_allow_html=True)
 			with st.expander('查看提取明细（前100行）', expanded=False):
 				st.dataframe(pd.DataFrame(results).head(100), use_container_width=True)
 			# 下载提取结果
