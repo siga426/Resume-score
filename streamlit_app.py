@@ -314,14 +314,6 @@ def main():
 	if 'score_logs' not in st.session_state:
 		st.session_state.score_logs = []
 
-	# 日志区域标题
-	st.markdown("""
-	<div style="background: linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%); 
-				padding: 1rem; border-radius: 10px; border: 1px solid #c084fc; margin: 1rem 0;">
-		<h3 style="color: #581c87; margin: 0; text-align: center;">📜 处理日志</h3>
-	</div>
-	""", unsafe_allow_html=True)
-	
 	# 常驻日志区域（默认展开，显示当前 session_state 日志）
 	# 提取进度条
 	ex_progress_placeholder = st.empty()
