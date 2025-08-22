@@ -621,6 +621,15 @@ def main():
 				zip_bytes = build_zip_bytes(files_for_zip)
 				st.download_button('🗜️ 下载全部（ZIP）', data=zip_bytes, file_name=f"resume_extraction_{ts}.zip", mime='application/zip')
 
+	# 添加版权信息
+	st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
+	st.markdown("""
+	<div style="text-align: center; padding: 2rem 0; color: #666; font-size: 0.9rem;">
+		<p style="margin: 0;">© 2025 CMSR - 简历智能分析系统</p>
+		<p style="margin: 0.5rem 0 0 0; font-size: 0.8rem;">版权所有 | All Rights Reserved</p>
+	</div>
+	""", unsafe_allow_html=True)
+
 
 if __name__ == '__main__':
 	main()
