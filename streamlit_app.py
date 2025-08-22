@@ -176,8 +176,16 @@ def main():
 	if not _HAS_AIA:
 		st.warning('未检测到 aiagentplatformpy。若为私有库，云端无法直接安装，请使用带该库的自定义环境或私有包镜像；或联系管理员提供公共可安装版本。')
 
+	# 添加分隔线
+	st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
+	
 	# ——— 模式选择 ———
-	st.subheader('选择处理模式')
+	st.markdown("""
+	<div style="background: linear-gradient(135deg, #f8f9ff 0%, #e8ecff 100%); 
+				padding: 1.5rem; border-radius: 15px; border: 1px solid #e0e6ff; margin: 1rem 0;">
+		<h3 style="color: #667eea; margin: 0 0 1rem 0; text-align: center;">🎯 选择处理模式</h3>
+	</div>
+	""", unsafe_allow_html=True)
 	
 	# 初始化模式状态
 	if 'selected_mode' not in st.session_state:
@@ -202,11 +210,21 @@ def main():
 			st.session_state.selected_mode = '📝 手动批量输入'
 	
 	mode = st.session_state.selected_mode
+	
+	# 模式选择后添加分隔线
+	if mode:
+		st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
 
 	queries: List[str] = []
 
 	if mode == '📄 单文件上传':
-		st.subheader('📁 上传查询文件（Excel/CSV/TXT）')
+		st.markdown("""
+		<div style="background: linear-gradient(135deg, #fff5f5 0%, #fed7d7 100%); 
+					padding: 1rem; border-radius: 10px; border: 1px solid #feb2b2; margin: 1rem 0;">
+			<h4 style="color: #c53030; margin: 0;">📁 上传查询文件（Excel/CSV/TXT）</h4>
+		</div>
+		""", unsafe_allow_html=True)
+		
 		uploaded = st.file_uploader('选择一个包含查询列表的文件：', type=['xlsx', 'xls', 'csv', 'txt'])
 		if uploaded is not None:
 			with tempfile.NamedTemporaryFile(delete=False, suffix=f".{uploaded.name.split('.')[-1]}") as tmp:
@@ -220,7 +238,13 @@ def main():
 					st.write(pd.DataFrame({'查询': queries}))
 
 	elif mode == '📁 从文件名生成':
-		st.subheader('📁 选择多个文件，系统将基于文件名生成查询')
+		st.markdown("""
+		<div style="background: linear-gradient(135deg, #f0fff4 0%, #dcfce7 100%); 
+					padding: 1rem; border-radius: 10px; border: 1px solid #86efac; margin: 1rem 0;">
+			<h4 style="color: #166534; margin: 0;">📁 选择多个文件，系统将基于文件名生成查询</h4>
+		</div>
+		""", unsafe_allow_html=True)
+		
 		batch_files = st.file_uploader('选择多个任意类型文件：仅提取文件名', accept_multiple_files=True)
 		if batch_files:
 			file_names = [bf.name for bf in batch_files]
@@ -236,7 +260,12 @@ def main():
 				}))
 
 	else:
-		st.subheader('📝 手动粘贴批量查询（每行一个）')
+		st.markdown("""
+		<div style="background: linear-gradient(135deg, #fef5e7 0%, #fed7aa 100%); 
+					padding: 1rem; border-radius: 10px; border: 1px solid #fbbf24; margin: 1rem 0;">
+			<h4 style="color: #92400e; margin: 0;">📝 手动粘贴批量查询（每行一个）</h4>
+		</div>
+		""", unsafe_allow_html=True)
 		text = st.text_area('在此粘贴或输入，每行一个查询（自动补齐“的简历情况/简历信息”后缀）', height=200)
 		if text.strip():
 			raw = [ln.strip() for ln in text.split('\n') if ln.strip()]
@@ -258,6 +287,13 @@ def main():
 	st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
 	
 	# 操作区域
+	st.markdown("""
+	<div style="background: linear-gradient(135deg, #e6fffa 0%, #b2f5ea 100%); 
+				padding: 1.5rem; border-radius: 15px; border: 1px solid #81e6d9; margin: 1rem 0;">
+		<h3 style="color: #065666; margin: 0 0 1rem 0; text-align: center;">🚀 执行操作</h3>
+	</div>
+	""", unsafe_allow_html=True)
+	
 	can_run = bool(queries)
 	if can_run:
 		st.success(f'✅ 已准备 {len(queries)} 条查询，可以开始处理')
@@ -285,6 +321,14 @@ def main():
 	if 'score_logs' not in st.session_state:
 		st.session_state.score_logs = []
 
+	# 日志区域标题
+	st.markdown("""
+	<div style="background: linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%); 
+				padding: 1rem; border-radius: 10px; border: 1px solid #c084fc; margin: 1rem 0;">
+		<h3 style="color: #581c87; margin: 0; text-align: center;">📜 处理日志</h3>
+	</div>
+	""", unsafe_allow_html=True)
+	
 	# 常驻日志区域（默认展开，显示当前 session_state 日志）
 	# 提取进度条
 	ex_progress_placeholder = st.empty()
