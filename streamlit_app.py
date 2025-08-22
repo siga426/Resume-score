@@ -629,6 +629,13 @@ def main():
 		<p style="margin: 0.5rem 0 0 0; font-size: 0.8rem;">版权所有 | All Rights Reserved</p>
 	</div>
 	""", unsafe_allow_html=True)
+	
+	# Siga的小彩蛋 - 隐藏在页面底部
+	st.markdown("""
+	<div style="text-align: right; padding: 0.5rem 1rem; font-size: 0.7rem; color: #ccc; opacity: 0.6;">
+		<span style="cursor: help;" title="Made with ❤️ by Siga">🎯</span>
+	</div>
+	""", unsafe_allow_html=True)
 
 
 if __name__ == '__main__':
